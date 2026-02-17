@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Configuración Inteligente de Silo{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Modo Inteligente - Silo {{ silo.name }}</h4>
+                        {% if silo.manual_mode == 'ia' %}
+                        <span class="badge bg-success">Activo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="intelligentForm" method="POST" action="">
+                        <input type="hidden" name="silo_id" value="{{ silo.id }}">
+                        <div class="mb-3">
+                            <label for="delta_temp_min" class="form-label">ΔT mínimo para enfriar (°C)</label>
+                            <input type="number" step="0.1" class="form-control" id="delta_temp_min" name="delta_temp_min" value="{{ config.delta_temp_min or 5 }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="delta_temp_hyst" class="form-label">Histéresis ΔT (°C)</label>
+                            <input type="number" step="0.1" class="form-control" id="delta_temp_hyst" name="delta_temp_hyst" value="{{ config.delta_temp_hyst or 2 }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="delta_emc_min" class="form-label">ΔEMC mínimo para secar (%)</label>
+                            <input type="number" step="0.1" class="form-control" id="delta_emc_min" name="delta_emc_min" value="{{ config.delta_emc_min or 1 }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="target_emc" class="form-label">EMC objetivo del grano (%)</label>
+                            <input type="number" step="0.1" class="form-control" id="target_emc" name="target_emc" value="{{ config.target_emc or 14 }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="target_temp" class="form-label">Temperatura a alcanzar (°C)</label>
+                            <input type="number" step="0.1" class="form-control" id="target_temp" name="target_temp" value="{{ config.target_temp or '' }}" required>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="achieve_humidity" name="achieve_humidity" {% if config.achieve_humidity %}checked{% endif %}>
+                            <label class="form-check-label" for="achieve_humidity">Alcanzar Humedad</label>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="achieve_temperature" name="achieve_temperature" {% if config.achieve_temperature %}checked{% endif %}>
+                            <label class="form-check-label" for="achieve_temperature">Alcanzar Temperatura</label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tipo_cereal" class="form-label">Tipo de cereal</label>
+                            <select class="form-select" id="tipo_cereal" name="tipo_cereal" required>
+                                <option value="maiz" {% if config.tipo_cereal=='maiz' %}selected{% endif %}>Maíz</option>
+                                <option value="soja" {% if config.tipo_cereal=='soja' %}selected{% endif %}>Soja</option>
+                                <option value="trigo" {% if config.tipo_cereal=='trigo' %}selected{% endif %}>Trigo</option>
+                            </select>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <a href="{{ url_for('user_silo_settings') }}" class="btn btn-secondary me-2">Cancelar</a>
+                            <button type="submit" class="btn btn-warning">Activar Modo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

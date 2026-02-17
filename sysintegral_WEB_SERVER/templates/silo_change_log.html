@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Cambios{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-history fa-4x text-primary mb-3"></i>
+                        <h2 class="card-title">Historial de Cambios de Silos</h2>
+                    </div>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <!-- Filtros -->
+                    <form method="GET" class="mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="establishment" class="form-label">Establecimiento</label>
+                                <select class="form-select" id="establishment" name="establishment" onchange="this.form.submit()">
+                                    <option value="">Todos los establecimientos</option>
+                                    {% for establishment in establishments %}
+                                        <option value="{{ establishment.id }}" {% if selected_establishment == establishment.id|string %}selected{% endif %}>
+                                            {{ establishment.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="silo" class="form-label">Silo</label>
+                                <select class="form-select" id="silo" name="silo" onchange="this.form.submit()">
+                                    <option value="">Todos los silos</option>
+                                    {% for silo in silos %}
+                                        <option value="{{ silo.id }}" {% if selected_silo == silo.id|string %}selected{% endif %}>
+                                            {{ silo.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% if current_user.role in ['admin', 'super_admin'] %}
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                    <i class="fas fa-trash-alt"></i> Eliminar Registros
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </form>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Silo</th>
+                                    <th>Usuario</th>
+                                    <th>Campo Modificado</th>
+                                    <th>Valor Anterior</th>
+                                    <th>Valor Nuevo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>{{ log.silo.name }} ({{ log.silo.establishment.name }})</td>
+                                    <td>{{ log.user.username }}</td>
+                                    <td>
+                                        {% if log.field_changed == 'min_temperature' %}
+                                            Temperatura Mínima
+                                        {% elif log.field_changed == 'max_temperature' %}
+                                            Temperatura Máxima
+                                        {% elif log.field_changed == 'min_humidity' %}
+                                            Humedad Mínima
+                                        {% elif log.field_changed == 'max_humidity' %}
+                                            Humedad Máxima
+                                        {% elif log.field_changed == 'peak_hours_shutdown' %}
+                                            Apagado en Hora Pico
+                                        {% elif log.field_changed == 'aerator_position' %}
+                                            Posición del Aireador
+                                        {% elif log.field_changed == 'name' %}
+                                            Nombre
+                                        {% else %}
+                                            {{ log.field_changed }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ log.old_value }}</td>
+                                    <td>{{ log.new_value }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para eliminar registros -->
+{% if current_user.role in ['admin', 'super_admin'] %}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Eliminar Registros</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('delete_silo_logs') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="delete_establishment" class="form-label">Establecimiento</label>
+                        <select class="form-select" id="delete_establishment" name="establishment_id">
+                            <option value="">Seleccione un establecimiento</option>
+                            {% for establishment in establishments %}
+                                <option value="{{ establishment.id }}">{{ establishment.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="delete_silo" class="form-label">Silo (opcional)</label>
+                        <select class="form-select" id="delete_silo" name="silo_id">
+                            <option value="">Todos los silos del establecimiento</option>
+                            {% for silo in silos %}
+                                <option value="{{ silo.id }}">{{ silo.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Esta acción eliminará permanentemente los registros seleccionados y no se puede deshacer.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Actualizar lista de silos cuando cambia el establecimiento
+    document.getElementById('establishment').addEventListener('change', function() {
+        const establishmentId = this.value;
+        const siloSelect = document.getElementById('silo');
+        const deleteSiloSelect = document.getElementById('delete_silo');
+        
+        // Limpiar selects de silos
+        siloSelect.innerHTML = '<option value="">Todos los silos</option>';
+        deleteSiloSelect.innerHTML = '<option value="">Todos los silos del establecimiento</option>';
+        
+        if (establishmentId) {
+            fetch(`/get_establishment_silos/${establishmentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.silos.forEach(silo => {
+                        // Agregar opción al select de filtro
+                        const option1 = new Option(silo.name, silo.id);
+                        siloSelect.add(option1);
+                        
+                        // Agregar opción al select del modal de eliminación
+                        const option2 = new Option(silo.name, silo.id);
+                        deleteSiloSelect.add(option2);
+                    });
+                });
+        }
+    });
+
+    // Lo mismo para el select de establecimiento en el modal
+    document.getElementById('delete_establishment').addEventListener('change', function() {
+        const establishmentId = this.value;
+        const deleteSiloSelect = document.getElementById('delete_silo');
+        
+        deleteSiloSelect.innerHTML = '<option value="">Todos los silos del establecimiento</option>';
+        
+        if (establishmentId) {
+            fetch(`/get_establishment_silos/${establishmentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.silos.forEach(silo => {
+                        const option = new Option(silo.name, silo.id);
+                        deleteSiloSelect.add(option);
+                    });
+                });
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

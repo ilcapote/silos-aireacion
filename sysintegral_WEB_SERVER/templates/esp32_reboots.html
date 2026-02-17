@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4" data-no-refresh>
+    <h2>Registro de Reinicios de Dispositivos ESP32</h2>
+    
+    <!-- Últimos heartbeats de todos los dispositivos -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Últimos Heartbeats de Dispositivos</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>MAC</th>
+                            <th>Establecimiento</th>
+                            <th>Último Heartbeat</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device in devices %}
+                        <tr>
+                            <td>{{ device.mac_address }}</td>
+                            <td>{{ device.establishment.name }}</td>
+                            <td>
+                                {% if device_heartbeats[device.mac_address]['last_heartbeat'] %}
+                                    {{ device_heartbeats[device.mac_address]['last_heartbeat'].strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% else %}
+                                    Sin datos
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if device_heartbeats[device.mac_address]['status'] == 'online' %}
+                                    <span class="badge badge-success">Online</span>
+                                {% elif device_heartbeats[device.mac_address]['status'] == 'warning' %}
+                                    <span class="badge badge-warning">Inestable</span>
+                                {% elif device_heartbeats[device.mac_address]['status'] == 'offline' %}
+                                    <span class="badge badge-danger">Offline</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">Sin datos</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Selector de dispositivo -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Seleccionar Dispositivo</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('esp32_reboots') }}" method="GET">
+                <div class="form-group">
+                    <label for="device_id">Dispositivo:</label>
+                    <select class="form-control" id="device_id" name="device_id" onchange="this.form.submit()">
+                        <option value="">Seleccione un dispositivo</option>
+                        {% for device in devices %}
+                        <option value="{{ device.id }}" {% if selected_device and selected_device.id == device.id %}selected{% endif %}>
+                            {{ device.mac_address }} - {{ device.establishment.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Historial de reinicios -->
+    <div class="card">
+        <div class="card-header">
+            <h4>Historial de Reinicios {% if selected_device %}de {{ selected_device.mac_address }}{% endif %} (Últimos 20)</h4>
+        </div>
+        <div class="card-body">
+            {% if selected_device %}
+                {% if reboots %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Fecha y Hora</th>
+                                <th>Razón</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for reboot in reboots %}
+                            <tr>
+                                <td>{{ reboot.reboot_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>{{ reboot.reason }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No hay registros de reinicios para este dispositivo.</p>
+                {% endif %}
+            {% else %}
+            <p class="text-muted">Seleccione un dispositivo para ver su historial de reinicios.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

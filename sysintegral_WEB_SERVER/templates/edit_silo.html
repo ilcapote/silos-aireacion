@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Silo{% endblock %}
+
+{% block content %}
+<div class="container" data-no-refresh>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-warehouse fa-4x text-primary mb-3"></i>
+                        <h2 class="card-title">Editar Silo</h2>
+                        <p class="text-muted">ID: {{ silo.id }}</p>
+                    </div>
+
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre del Silo</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ silo.name }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="establishment_id" class="form-label">Establecimiento</label>
+                            <select class="form-select" id="establishment_id" name="establishment_id" required>
+                                {% for establishment in establishments %}
+                                    <option value="{{ establishment.id }}" 
+                                            {% if establishment.id == silo.establishment_id %}selected{% endif %}>
+                                        {{ establishment.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="min_temperature" class="form-label">Temperatura Mínima (°C)</label>
+                                <input type="number" class="form-control" id="min_temperature" name="min_temperature" 
+                                       step="0.1" value="{{ silo.min_temperature }}" required>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="max_temperature" class="form-label">Temperatura Máxima (°C)</label>
+                                <input type="number" class="form-control" id="max_temperature" name="max_temperature" 
+                                       step="0.1" value="{{ silo.max_temperature }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="min_humidity" class="form-label">Humedad Mínima (%)</label>
+                                <input type="number" class="form-control" id="min_humidity" name="min_humidity" 
+                                       step="0.1" value="{{ silo.min_humidity }}" required>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="max_humidity" class="form-label">Humedad Máxima (%)</label>
+                                <input type="number" class="form-control" id="max_humidity" name="max_humidity" 
+                                       step="0.1" value="{{ silo.max_humidity }}" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">Horario de Aireación</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="air_start_hour" class="form-label">Desde (hora)</label>
+                                    <input type="number" class="form-control" id="air_start_hour" name="air_start_hour" min="0" max="23" value="{{ silo.air_start_hour }}" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="air_end_hour" class="form-label">Hasta (hora)</label>
+                                    <input type="number" class="form-control" id="air_end_hour" name="air_end_hour" min="0" max="23" value="{{ silo.air_end_hour }}" required>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Ejemplo: Desde 23 hasta 6 permite airear sólo de noche.</small>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="aerator_position" class="form-label">Posición del Aireador</label>
+                            <select class="form-select" id="aerator_position" name="aerator_position" required>
+                                <option value="">Seleccione una posición</option>
+                                {% if silo.aerator_position %}
+                                    <option value="{{ silo.aerator_position }}" selected>
+                                        Salida {{ silo.aerator_position }} (Posición actual)
+                                    </option>
+                                {% endif %}
+                                {% for position in available_positions %}
+                                    {% if position != silo.aerator_position %}
+                                        <option value="{{ position }}">Salida {{ position }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Seleccione la salida de la placa (1-8) donde se conectará el aireador</small>
+                            {% if not available_positions and not silo.aerator_position %}
+                                <div class="alert alert-warning mt-2">
+                                    No hay posiciones disponibles en este establecimiento. Todas las salidas están ocupadas.
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Guardar Cambios
+                            </button>
+                            <a href="{{ url_for('manage_silos') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

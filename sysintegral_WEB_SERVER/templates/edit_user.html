@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Usuario{% endblock %}
+
+{% block content %}
+<div class="container" data-no-refresh>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-edit fa-4x text-primary mb-3"></i>
+                        <h2 class="card-title">Editar Usuario</h2>
+                    </div>
+
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Nombre de Usuario</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ user.username }}" {% if not current_user.role == 'super_admin' %}readonly{% endif %}>
+                        </div>
+
+                        {% if user.role == 'admin' and current_user.role == 'super_admin' %}
+                        <div class="mb-4">
+                            <label class="form-label">Establecimientos Asignados</label>
+                            <div class="card">
+                                <div class="card-body" style="max-height: 200px; overflow-y: auto;">
+                                    {% for establishment in establishments %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="establishments" value="{{ establishment.id }}" 
+                                               id="est{{ establishment.id }}"
+                                               {% if establishment in user.establishments %}checked{% endif %}>
+                                        <label class="form-check-label" for="est{{ establishment.id }}">
+                                            {{ establishment.name }}
+                                            <small class="text-muted">
+                                                ({{ establishment.owner }})
+                                            </small>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if current_user.role == 'admin' and user.role == 'user' %}
+                        <div class="mb-4">
+                            <label class="form-label">Establecimientos Asignados</label>
+                            <div class="card">
+                                <div class="card-body" style="max-height: 200px; overflow-y: auto;">
+                                    {% for establishment in current_user.establishments %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="establishments" value="{{ establishment.id }}" 
+                                               id="est{{ establishment.id }}"
+                                               {% if establishment in user.establishments %}checked{% endif %}>
+                                        <label class="form-check-label" for="est{{ establishment.id }}">
+                                            {{ establishment.name }}
+                                            <small class="text-muted">
+                                                ({{ establishment.owner }})
+                                            </small>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                Solo puedes asignar establecimientos a los que tienes acceso
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">Nueva Contraseña (dejar en blanco para mantener la actual)</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password">
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Guardar Cambios
+                            </button>
+                            <a href="{{ url_for('manage_users') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

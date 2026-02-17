@@ -1,0 +1,49 @@
+{% macro render_bar_form(action_url, bar=None, establishments=[], available_sensors=[], csrf_token_field=None, submit_text='Guardar Barra') %}
+<form method="POST" action="{{ action_url }}">
+    {% if csrf_token_field %}
+        {{ csrf_token_field }}
+    {% endif %}
+    <div class="form-group mb-3">
+        <label for="nombre">Nombre de la Barra:</label>
+        <input type="text" class="form-control" id="nombre" name="nombre" value="{{ bar.nombre if bar and bar.get('nombre') is not none else request.form.get('nombre', '') }}" required>
+    </div>
+
+    <hr>
+    <h5>Asignación de Sensores (Al menos uno es requerido):</h5>
+    <div class="row">
+        {% for i in range(1, 9) %}
+        <div class="col-md-3 mb-3">
+            <label for="sensor{{i}}_id" class="form-label">Sensor Posición {{i}}:</label>
+            <select class="form-select" id="sensor{{i}}_id" name="sensor{{i}}_id">
+                <option value="">-- No asignar --</option>
+                {% set current_sensor_id = (bar.get('sensor' ~ i ~ '_id') if bar else request.form.get('sensor' ~ i ~ '_id')) | string %}
+                {% for sensor in available_sensors %}
+                <option value="{{ sensor.id }}" 
+                        {{ 'selected' if current_sensor_id and current_sensor_id == sensor.id|string else '' }}>
+                    {{ sensor.numero_serie }} ({{ sensor.descripcion or 'Sin desc.' }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endfor %}
+    </div>
+    <hr>
+
+    <div class="form-group mb-3">
+        <label for="establecimiento_id">Establecimiento (Opcional):</label>
+        <select class="form-select" id="establecimiento_id" name="establecimiento_id">
+            <option value="">-- No asignar / Sin establecimiento --</option> {# Opción para no seleccionar #}
+            {% set current_establishment_id = (bar.get('establecimiento_id') if bar else request.form.get('establecimiento_id')) | string %}
+            {% for est in establishments %}
+            <option value="{{ est.id }}" {{ 'selected' if current_establishment_id and current_establishment_id == est.id|string else '' }}>
+                {{ est.name }}
+            </option>
+            {% endfor %}
+        </select>
+        <small>Nota: El establecimiento de la barra se actualizará automáticamente si la asigna a un silo.</small>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">{{ submit_text }}</button>
+    <a href="{{ url_for('manage_sensor_bars') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endmacro %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Establecimiento{% endblock %}
+
+{% block content %}
+<div class="container" data-no-refresh>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-edit fa-4x text-primary mb-3"></i>
+                        <h2 class="card-title">Editar Establecimiento</h2>
+                    </div>
+
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre del Establecimiento</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ establishment.name }}" required>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="latitude" class="form-label">Latitud</label>
+                                <input type="number" class="form-control" id="latitude" name="latitude" 
+                                       step="any" required value="{{ establishment.latitude }}"
+                                       placeholder="Ej: -34.6037">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="longitude" class="form-label">Longitud</label>
+                                <input type="number" class="form-control" id="longitude" name="longitude" 
+                                       step="any" required value="{{ establishment.longitude }}"
+                                       placeholder="Ej: -58.3816">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="owner" class="form-label">Dueño</label>
+                            <input type="text" class="form-control" id="owner" name="owner" 
+                                   value="{{ establishment.owner }}" required>
+                        </div>
+
+                        {# Nuevos campos para corriente máxima y sensor #}
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="max_operating_current" class="form-label">Corriente Máxima de Operación (Amperes)</label>
+                                <input type="number" class="form-control" id="max_operating_current" name="max_operating_current" 
+                                       step="any" value="{{ establishment.max_operating_current if establishment.max_operating_current is not none else '' }}"
+                                       placeholder="Dejar vacío si no aplica">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="current_sensor_id" class="form-label">ID del Sensor de Corriente</label>
+                                <input type="text" class="form-control" id="current_sensor_id" name="current_sensor_id" 
+                                       value="{{ establishment.current_sensor_id or '' }}" 
+                                       placeholder="Ej: sensor_principal">
+                            </div>
+                        </div>
+                        {# Fin nuevos campos #}
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Guardar Cambios
+                            </button>
+                            <a href="{{ url_for('manage_establishments') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Volver
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

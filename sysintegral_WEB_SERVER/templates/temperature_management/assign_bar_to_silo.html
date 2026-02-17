@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Asignar Barra {{ barra.nombre }} a Silo{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Asignar Barra de Sensores: <strong>{{ barra.nombre }}</strong></h2>
+    
+    {% if barra.establecimiento %}
+        <p>Establecimiento actual de la barra: {{ barra.establecimiento.name }}</p>
+    {% else %}
+        <p>Esta barra aún no está asociada a un establecimiento. Al asignarla a un silo, se asociará al establecimiento del silo.</p>
+    {% endif %}
+
+    {% if barra.silo_asignado %}
+        <div class="alert alert-info" role="alert">
+            Esta barra ya está asignada al Silo: <strong>{{ barra.silo_asignado.name }}</strong> (Establecimiento: {{ barra.silo_asignado.establishment.name }}).
+            Si selecciona un nuevo silo, la asignación cambiará.
+        </div>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('assign_bar_to_silo_view', bar_id=barra.id) }}">
+        {# Si usas Flask-WTF, aquí iría {{ form.csrf_token }} #}
+        
+        <div class="mb-3">
+            <label for="silo_id" class="form-label">Seleccionar Silo:</label>
+            <select class="form-select" id="silo_id" name="silo_id" required>
+                <option value="">-- Elija un Silo --</option>
+                {% for silo in available_silos %}
+                    <option value="{{ silo.id }}" {% if barra.silo_asignado_id == silo.id %}selected{% endif %}>
+                        {{ silo.name }} (Establecimiento: {{ silo.establishment.name }})
+                    </option>
+                {% endfor %}
+            </select>
+            {% if not available_silos and not barra.silo_asignado %} {# Modificado para mejor lógica del mensaje #}
+                <div class="form-text text-warning">No hay silos disponibles para asignación (que no tengan ya una barra o no sean el actual de esta barra).</div>
+            {% endif %}
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary" {% if not available_silos and not barra.silo_asignado %}disabled{% endif %}>
+                Asignar a este Silo
+            </button>
+            <a href="{{ url_for('manage_sensor_bars') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+    
+    {% if barra.silo_asignado %}
+    <hr>
+    <form method="POST" action="{{ url_for('deassign_bar_from_silo', bar_id=barra.id) }}" 
+          onsubmit="return confirm('¿Está seguro de que desea desasignar esta barra del silo {{ barra.silo_asignado.name }}?');">
+        {# Si usas Flask-WTF, aquí iría {{ form.csrf_token }} #}
+        <button type="submit" class="btn btn-warning">Desasignar del Silo Actual</button>
+    </form>
+    {% endif %}
+
+</div>
+{% endblock %}

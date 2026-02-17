@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Silos{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-warehouse fa-4x text-primary mb-3"></i>
+                        <h2 class="card-title">Gestión de Silos</h2>
+                    </div>
+
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <div class="text-end mb-4">
+                        <a href="{{ url_for('create_silo') }}" class="btn btn-success">
+                            <i class="fas fa-plus-circle me-2"></i>Nuevo Silo
+                        </a>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Establecimiento</th>
+                                    <th>Temperatura</th>
+                                    <th>Humedad</th>
+                                    <th>Horas Pico</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for silo in silos %}
+                                <tr>
+                                    <td>{{ silo.id }}</td>
+                                    <td>{{ silo.name }}</td>
+                                    <td>{{ silo.establishment.name }}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            Min: {{ "%.1f"|format(silo.min_temperature) }}°C<br>
+                                            Max: {{ "%.1f"|format(silo.max_temperature) }}°C
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            Min: {{ "%.1f"|format(silo.min_humidity) }}%<br>
+                                            Max: {{ "%.1f"|format(silo.max_humidity) }}%
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if silo.peak_hours_shutdown %}
+                                            <span class="badge bg-success">Activado</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Desactivado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if silo.modified %}
+                                            <span class="badge bg-warning">Modificado</span>
+                                        {% else %}
+                                            <span class="badge bg-info">Original</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('edit_silo', silo_id=silo.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit"></i> Editar
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-danger" 
+                                                onclick="confirmDelete('{{ silo.name }}', {{ silo.id }})">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que deseas eliminar el silo "<span id="siloName"></span>"?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(name, id) {
+    document.getElementById('siloName').textContent = name;
+    document.getElementById('deleteForm').action = '/delete_silo/' + id;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

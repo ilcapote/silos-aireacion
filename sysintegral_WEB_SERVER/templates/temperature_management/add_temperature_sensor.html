@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% from "temperature_management/form_temperature_sensor.html" import render_sensor_form %}
+
+{% block title %}Añadir Sensor de Temperatura{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Añadir Nuevo Sensor de Temperatura</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Botón para mostrar sensores con datos -->
+    <div class="mb-4">
+        <button type="button" class="btn btn-info" id="showSensorsBtn" onclick="toggleSensorsTable()">
+            <i class="fas fa-thermometer-half"></i> Ver Sensores con Datos de Temperatura
+        </button>
+        <button type="button" class="btn btn-secondary d-none" id="hideSensorsBtn" onclick="toggleSensorsTable()">
+            <i class="fas fa-eye-slash"></i> Ocultar Tabla
+        </button>
+    </div>
+
+    <!-- Tabla de sensores con datos (inicialmente oculta) -->
+    <div id="sensorsTableContainer" class="d-none mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list"></i> Sensores Registrados con Datos de Temperatura</h5>
+            </div>
+            <div class="card-body">
+                <div id="loadingSpinner" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando datos de sensores...</p>
+                </div>
+                <div id="sensorsTableContent" class="d-none">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Número de Serie</th>
+                                    <th>Descripción</th>
+                                    <th>Última Temperatura</th>
+                                    <th>Última Lectura</th>
+                                    <th>Total Lecturas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensorsTableBody">
+                                <!-- Los datos se cargarán aquí dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="noDataMessage" class="alert alert-info d-none">
+                        <i class="fas fa-info-circle"></i> No se encontraron sensores con datos de temperatura registrados.
+                    </div>
+                </div>
+                <div id="errorMessage" class="alert alert-danger d-none">
+                    <i class="fas fa-exclamation-triangle"></i> <span id="errorText"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    {{ render_sensor_form(url_for('add_temperature_sensor'), 
+                          sensor={'numero_serie': request.form.get('numero_serie', ''), 'descripcion': request.form.get('descripcion', '')} if request.method == 'POST' else None, 
+                          submit_text='Añadir Sensor') }}
+</div>
+
+<script>
+let sensorsDataLoaded = false;
+
+function toggleSensorsTable() {
+    const container = document.getElementById('sensorsTableContainer');
+    const showBtn = document.getElementById('showSensorsBtn');
+    const hideBtn = document.getElementById('hideSensorsBtn');
+    
+    if (container.classList.contains('d-none')) {
+        // Mostrar tabla
+        container.classList.remove('d-none');
+        showBtn.classList.add('d-none');
+        hideBtn.classList.remove('d-none');
+        
+        // Cargar datos solo si no se han cargado antes
+        if (!sensorsDataLoaded) {
+            loadSensorsData();
+        }
+    } else {
+        // Ocultar tabla
+        container.classList.add('d-none');
+        showBtn.classList.remove('d-none');
+        hideBtn.classList.add('d-none');
+    }
+}
+
+function loadSensorsData() {
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const tableContent = document.getElementById('sensorsTableContent');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    // Mostrar spinner
+    loadingSpinner.classList.remove('d-none');
+    tableContent.classList.add('d-none');
+    errorMessage.classList.add('d-none');
+    
+    fetch('/api/sensors_with_data')
+        .then(response => response.json())
+        .then(data => {
+            loadingSpinner.classList.add('d-none');
+            
+            if (data.status === 'success') {
+                if (data.sensores && data.sensores.length > 0) {
+                    populateTable(data.sensores);
+                    tableContent.classList.remove('d-none');
+                    document.getElementById('noDataMessage').classList.add('d-none');
+                } else {
+                    tableContent.classList.remove('d-none');
+                    document.getElementById('noDataMessage').classList.remove('d-none');
+                }
+                sensorsDataLoaded = true;
+            } else {
+                showError(data.message || 'Error desconocido al cargar los datos');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            loadingSpinner.classList.add('d-none');
+            showError('Error de conexión al cargar los datos');
+        });
+}
+
+function populateTable(sensores) {
+    const tbody = document.getElementById('sensorsTableBody');
+    tbody.innerHTML = '';
+    
+    sensores.forEach(sensor => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${sensor.id}</td>
+            <td><strong>${sensor.numero_serie}</strong></td>
+            <td>${sensor.descripcion}</td>
+            <td><span class="badge bg-primary">${sensor.ultima_temperatura}°C</span></td>
+            <td><small class="text-muted">${sensor.ultima_lectura_timestamp}</small></td>
+            <td><span class="badge bg-secondary">${sensor.total_lecturas}</span></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function showError(message) {
+    const errorMessage = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+    errorText.textContent = message;
+    errorMessage.classList.remove('d-none');
+}
+</script>
+{% endblock %}

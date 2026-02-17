@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4" data-no-refresh>
+    <h2>Gestión de Dispositivos ESP32</h2>
+    
+    <!-- Formulario para registrar nuevo dispositivo -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Registrar Nuevo Dispositivo ESP32</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('register_esp32_device') }}" method="POST">
+                <div class="form-group">
+                    <label for="mac_address">Dirección MAC:</label>
+                    <input type="text" class="form-control" id="mac_address" name="mac_address" 
+                           placeholder="XX:XX:XX:XX:XX:XX" pattern="^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$" required>
+                    <small class="form-text text-muted">Formato: XX:XX:XX:XX:XX:XX (donde X es un número hexadecimal)</small>
+                </div>
+                <div class="form-group">
+                    <label for="establishment_id">Establecimiento:</label>
+                    <select class="form-control" id="establishment_id" name="establishment_id" required>
+                        <option value="">Seleccione un establecimiento</option>
+                        {% for establishment in establishments %}
+                        <option value="{{ establishment.id }}">{{ establishment.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Registrar Dispositivo</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de dispositivos registrados -->
+    <div class="card">
+        <div class="card-header">
+            <h4>Dispositivos Registrados</h4>
+        </div>
+        <div class="card-body">
+            {% if devices %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Dirección MAC</th>
+                            <th>Fecha de Registro</th>
+                            <th>Establecimiento</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device in devices %}
+                        <tr>
+                            <td>{{ device.mac_address }}</td>
+                            <td>{{ device.registration_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ device.establishment.name }}</td>
+                            <td>
+                                <form action="{{ url_for('delete_esp32_device', device_id=device.id) }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Está seguro de que desea eliminar este dispositivo?')">
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">No hay dispositivos ESP32 registrados.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <i class="fas fa-user-circle fa-4x text-primary mb-3"></i>
+                    <h2 class="card-title">Bienvenido, {{ current_user.username }}</h2>
+                    <p class="text-muted">
+                        {% if current_user.role == 'super_admin' %}
+                            Super Administrador
+                        {% elif current_user.role == 'admin' %}
+                            Administrador
+                        {% else %}
+                            Usuario
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="row g-4 py-3">
+                    {% if current_user.role == 'super_admin' %}
+                    <div class="col-md-6">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">Gestión de Usuarios</h5>
+                                <p class="card-text">Administrar usuarios y roles del sistema</p>
+                                <a href="{{ url_for('manage_users') }}" class="btn btn-primary">Gestionar Usuarios</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-building fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">Gestión de Establecimientos</h5>
+                                <p class="card-text">Administrar establecimientos y sus ubicaciones</p>
+                                <a href="{{ url_for('manage_establishments') }}" class="btn btn-primary">Gestionar Establecimientos</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-warehouse fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">Gestión de Silos</h5>
+                                <p class="card-text">Administrar silos y sus parámetros</p>
+                                <a href="{{ url_for('manage_silos') }}" class="btn btn-primary">Gestionar Silos</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-microchip fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">Gestión de ESP32</h5>
+                                <p class="card-text">Administrar dispositivos ESP32 y sus asignaciones</p>
+                                <a href="{{ url_for('manage_esp32_devices') }}" class="btn btn-primary">Gestionar ESP32</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if current_user.role == 'super_admin' %}
+                    <!-- Control Global de Aireadores -->
+                    <div class="col-12">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-power-off me-2"></i>Control Global de Aireadores
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <p class="mb-2">
+                                            <strong>Estado actual:</strong> 
+                                            <span id="global-status-text" class="badge bg-secondary">Cargando...</span>
+                                        </p>
+                                        <p class="text-muted mb-0">
+                                            Cuando está desactivado, todos los aireadores de todos los establecimientos permanecerán apagados, 
+                                            independientemente de las condiciones meteorológicas o configuraciones individuales.
+                                        </p>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" id="global-aerator-switch" style="transform: scale(1.5);">
+                                            <label class="form-check-label ms-2" for="global-aerator-switch" id="switch-label">
+                                                Activar Aireadores
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="last-modified-info" class="mt-2 text-muted small" style="display: none;">
+                                    <i class="fas fa-clock me-1"></i>
+                                    <span id="last-modified-text"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if current_user.role in ['super_admin', 'admin'] %}
+                    <div class="col-md-6">
+                        <div class="card h-100 border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-users fa-3x text-success mb-3"></i>
+                                <h5 class="card-title">Gestión de Usuarios</h5>
+                                <p class="card-text">Crear y gestionar cuentas de usuarios</p>
+                                <a href="{{ url_for('create_user') }}" class="btn btn-success">
+                                    <i class="fas fa-user-plus me-2"></i>Crear Usuario
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100 border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-cog fa-3x text-success mb-3"></i>
+                                <h5 class="card-title">Configuración de Silos</h5>
+                                <p class="card-text">Editar variables y parámetros de los silos</p>
+                                <a href="{{ url_for('user_silo_settings') }}" class="btn btn-success">
+                                    <i class="fas fa-sliders-h me-2"></i>Editar Silos
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if current_user.role == 'super_admin' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const globalSwitch = document.getElementById('global-aerator-switch');
+    const statusText = document.getElementById('global-status-text');
+    const switchLabel = document.getElementById('switch-label');
+    const lastModifiedInfo = document.getElementById('last-modified-info');
+    const lastModifiedText = document.getElementById('last-modified-text');
+
+    // Cargar estado inicial
+    loadGlobalStatus();
+
+    // Manejar cambios en el switch
+    globalSwitch.addEventListener('change', function() {
+        const enabled = this.checked;
+        toggleGlobalControl(enabled);
+    });
+
+    function loadGlobalStatus() {
+        fetch('/get_global_aerator_status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error:', data.error);
+                    statusText.textContent = 'Error al cargar';
+                    statusText.className = 'badge bg-danger';
+                    return;
+                }
+
+                const enabled = data.enabled;
+                globalSwitch.checked = enabled;
+                
+                if (enabled) {
+                    statusText.textContent = 'ACTIVADO';
+                    statusText.className = 'badge bg-success';
+                    switchLabel.textContent = 'Desactivar Aireadores';
+                } else {
+                    statusText.textContent = 'DESACTIVADO';
+                    statusText.className = 'badge bg-danger';
+                    switchLabel.textContent = 'Activar Aireadores';
+                }
+
+                // Mostrar información de última modificación
+                if (data.last_modified && data.modified_by) {
+                    const lastModified = new Date(data.last_modified);
+                    lastModifiedText.textContent = `Última modificación: ${lastModified.toLocaleString()} por ${data.modified_by}`;
+                    lastModifiedInfo.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error al cargar estado:', error);
+                statusText.textContent = 'Error de conexión';
+                statusText.className = 'badge bg-danger';
+            });
+    }
+
+    function toggleGlobalControl(enabled) {
+        // Deshabilitar el switch mientras se procesa
+        globalSwitch.disabled = true;
+        
+        fetch('/toggle_global_aerator_control', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ enabled: enabled })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Actualizar la interfaz
+                if (enabled) {
+                    statusText.textContent = 'ACTIVADO';
+                    statusText.className = 'badge bg-success';
+                    switchLabel.textContent = 'Desactivar Aireadores';
+                } else {
+                    statusText.textContent = 'DESACTIVADO';
+                    statusText.className = 'badge bg-danger';
+                    switchLabel.textContent = 'Activar Aireadores';
+                }
+
+                // Mostrar mensaje de éxito
+                showAlert(data.message, 'success');
+                
+                // Recargar información de última modificación
+                setTimeout(loadGlobalStatus, 1000);
+            } else {
+                // Revertir el switch si hubo error
+                globalSwitch.checked = !enabled;
+                showAlert(data.message || 'Error al cambiar el estado', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Revertir el switch si hubo error
+            globalSwitch.checked = !enabled;
+            showAlert('Error de conexión al cambiar el estado', 'danger');
+        })
+        .finally(() => {
+            // Rehabilitar el switch
+            globalSwitch.disabled = false;
+        });
+    }
+
+    function showAlert(message, type) {
+        // Crear un alert temporal
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Auto-remover después de 5 segundos
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endif %}
+
+{% endblock %}

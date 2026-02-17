@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Establecimiento{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-building fa-4x text-primary mb-3"></i>
+                        <h2 class="card-title">Crear Nuevo Establecimiento</h2>
+                    </div>
+
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST" action="{{ url_for('create_establishment') }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre del Establecimiento</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="latitude" class="form-label">Latitud</label>
+                                <input type="number" class="form-control" id="latitude" name="latitude" 
+                                       step="any" required placeholder="Ej: -34.6037">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="longitude" class="form-label">Longitud</label>
+                                <input type="number" class="form-control" id="longitude" name="longitude" 
+                                       step="any" required placeholder="Ej: -58.3816">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="owner" class="form-label">Dueño</label>
+                            <input type="text" class="form-control" id="owner" name="owner" required>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus-circle me-2"></i>Crear Establecimiento
+                            </button>
+                            <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Volver al Inicio
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

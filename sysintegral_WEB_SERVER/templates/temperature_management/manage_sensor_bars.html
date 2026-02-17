@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Barras de Sensores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Gestionar Barras de Sensores</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <p>
+        <a href="{{ url_for('add_sensor_bar') }}" class="btn btn-success mb-3">
+            <i class="fas fa-plus"></i> Añadir Nueva Barra de Sensores
+        </a>
+    </p>
+
+    {% if barras %}
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Establecimiento</th>
+                    <th>Silo Asignado</th>
+                    <th>Sensores Asignados</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for barra in barras %}
+                <tr>
+                    <td>{{ barra.id }}</td>
+                    <td>{{ barra.nombre }}</td>
+                    <td>{{ barra.establecimiento.name if barra.establecimiento else 'N/A' }}</td>
+                    <td>
+                        {% if barra.silo_asignado %}
+                            {{ barra.silo_asignado.name }} (Est: {{ barra.silo_asignado.establishment.name }})
+                        {% else %}
+                            <span class="text-muted">No asignado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% set count = namespace(value=0) %}
+                        {% for i in range(1, 9) %}
+                            {% if barra['sensor' ~ i ~ '_id'] %}
+                                {% set count.value = count.value + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                        {{ count.value }} / 8
+                    </td>
+                    <td>
+                        <a href="{{ url_for('edit_sensor_bar', bar_id=barra.id) }}" class="btn btn-sm btn-info me-1 mb-1" title="Configurar Sensores">
+                            <i class="fas fa-cogs"></i> Sensores
+                        </a>
+                        <a href="{{ url_for('assign_bar_to_silo_view', bar_id=barra.id) }}" class="btn btn-sm {% if barra.silo_asignado_id %}btn-outline-primary{% else %}btn-primary{% endif %} me-1 mb-1" title="{% if barra.silo_asignado_id %}Ver/Cambiar Asignación de Silo{% else %}Asignar a Silo{% endif %}">
+                            <i class="fas fa-industry"></i> {% if barra.silo_asignado_id %}Ver/Cambiar Silo{% else %}Asignar Silo{% endif %}
+                        </a>
+                        <form method="POST" action="{{ url_for('delete_sensor_bar', bar_id=barra.id) }}" style="display:inline;" onsubmit="return confirm('¿Está seguro de que desea eliminar la barra \'{{ barra.nombre }}\'?');">
+                            <button type="submit" class="btn btn-sm btn-danger mb-1" title="Eliminar Barra">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No hay barras de sensores registradas.</p>
+    {% endif %}
+
+    <p><a href="{{ url_for('index') }}" class="btn btn-link mt-3">Volver al inicio</a></p>
+</div>
+{% endblock %}

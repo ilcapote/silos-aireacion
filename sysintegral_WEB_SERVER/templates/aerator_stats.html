@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Estadísticas de Aireadores</h2>
+    
+    {% for establishment in establishments %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">{{ establishment.name }}</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Silo</th>
+                            <th>Posición</th>
+                            <th>Tiempo Total Encendido</th>
+                            <th>Estado Actual</th>
+                            <th>Último Cambio</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for silo in establishment.silos %}
+                        <tr id="silo-row-{{ silo.id }}">
+                            <td>{{ silo.name }}</td>
+                            <td>{{ silo.aerator_position }}</td>
+                            <td id="total-hours-{{ silo.id }}">Cargando...</td>
+                            <td id="current-state-{{ silo.id }}">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                            </td>
+                            <td id="last-change-{{ silo.id }}">Cargando...</td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="viewHistory('{{ silo.id }}')">
+                                    Ver Historial
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal para el historial -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Historial de Actividad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Acción</th>
+                                <th>Duración</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-content">
+                            <tr>
+                                <td colspan="3" class="text-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function formatDate(dateString) {
+    const options = { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit'
+    };
+    return new Date(dateString).toLocaleDateString('es-ES', options);
+}
+
+function formatDuration(hours) {
+    if (hours === undefined || hours === null) return '0 horas';
+    const totalHours = parseFloat(hours);
+    if (totalHours < 1) {
+        const minutes = Math.round(totalHours * 60);
+        return `${minutes} minutos`;
+    }
+    return `${totalHours.toFixed(1)} horas`;
+}
+
+function updateSiloStats(siloId) {
+    console.log(`Actualizando estadísticas para silo ${siloId}`);
+    fetch(`/api/get_aerator_stats/${siloId}`)
+        .then(response => {
+            console.log(`Respuesta recibida para silo ${siloId}:`, response);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`Datos recibidos para silo ${siloId}:`, data);
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // Actualizar tiempo total
+            const totalHoursElement = document.getElementById(`total-hours-${siloId}`);
+            totalHoursElement.textContent = formatDuration(data.total_hours);
+
+            // Actualizar estado actual
+            const currentStateElement = document.getElementById(`current-state-${siloId}`);
+            const stateClass = data.current_state === 'ON' ? 'success' : 'secondary';
+            currentStateElement.innerHTML = `
+                <span class="badge bg-${stateClass}">
+                    ${data.current_state === 'ON' ? 'Encendido' : 'Apagado'}
+                </span>
+            `;
+
+            // Actualizar último cambio
+            const lastChangeElement = document.getElementById(`last-change-${siloId}`);
+            if (data.last_change) {
+                lastChangeElement.textContent = formatDate(data.last_change);
+            } else {
+                lastChangeElement.textContent = 'Sin cambios';
+            }
+        })
+        .catch(error => {
+            console.error(`Error al cargar estadísticas para silo ${siloId}:`, error);
+            const elements = ['total-hours', 'current-state', 'last-change'].map(
+                id => document.getElementById(`${id}-${siloId}`)
+            );
+            elements.forEach(el => {
+                if (el) el.textContent = 'Error al cargar datos';
+            });
+        });
+}
+
+function viewHistory(siloId) {
+    const modal = new bootstrap.Modal(document.getElementById('historyModal'));
+    const historyContent = document.getElementById('history-content');
+    
+    // Mostrar modal con spinner
+    modal.show();
+    historyContent.innerHTML = `
+        <tr>
+            <td colspan="3" class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+
+    // Cargar datos del historial
+    fetch(`/api/get_aerator_stats/${siloId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            
+            if (!data.history || data.history.length === 0) {
+                historyContent.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center">
+                            No hay registros de actividad
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            historyContent.innerHTML = data.history
+                .map(entry => `
+                    <tr>
+                        <td>${formatDate(entry.timestamp)}</td>
+                        <td>
+                            <span class="badge bg-${entry.action === 'ON' ? 'success' : 'secondary'}">
+                                ${entry.action === 'ON' ? 'Encendido' : 'Apagado'}
+                            </span>
+                        </td>
+                        <td>${entry.duration ? formatDuration(entry.duration) : '-'}</td>
+                    </tr>
+                `)
+                .join('');
+        })
+        .catch(error => {
+            console.error('Error al cargar historial:', error);
+            historyContent.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-danger">
+                        Error al cargar el historial
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+// Inicializar las estadísticas al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    const siloRows = document.querySelectorAll('[id^="silo-row-"]');
+    siloRows.forEach(row => {
+        const siloId = row.id.replace('silo-row-', '');
+        updateSiloStats(siloId);
+    });
+
+    // Actualizar cada 30 segundos
+    setInterval(() => {
+        siloRows.forEach(row => {
+            const siloId = row.id.replace('silo-row-', '');
+            updateSiloStats(siloId);
+        });
+    }, 30000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,917 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de Silo{% endblock %}
+
+{% block content %}
+<style>
+    .hour-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);  /* 8 columnas */
+        gap: 4px;  /* Espacio reducido */
+        margin: 12px 0;
+        width: 100%;  /* Usar todo el ancho disponible */
+    }
+    .hour-box {
+        position: relative;
+        padding: 4px 2px;  /* Padding más pequeño */
+        border-radius: 3px;
+        text-align: center;
+        color: white;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        font-size: 0.7em;
+    }
+    .hour-box.active {
+        background-color: #28a745;
+    }
+    .hour-box.inactive {
+        background-color: #dc3545;
+    }
+    .hour-box .time {
+        margin-bottom: 1px;
+        line-height: 1;  /* Reducir el espacio vertical */
+    }
+    .hour-box .status {
+        font-size: 0.9em;
+        line-height: 1;
+    }
+    .hour-box .reasons {
+        display: flex;
+        gap: 2px;
+        justify-content: center;
+        font-size: 0.7em;
+        margin-top: 2px;
+    }
+    .hour-box .reasons i {
+        color: white;
+    }
+    .hour-box:hover {
+        transform: scale(1.1);
+        cursor: pointer;
+        z-index: 2;
+    }
+    .hour-box .tooltip {
+        visibility: hidden;
+        position: absolute;
+        bottom: 120%;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 6px;
+        border-radius: 3px;
+        font-size: 0.75em;
+        white-space: nowrap;
+        z-index: 1000;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .hour-box:hover .tooltip {
+        visibility: visible;
+    }
+
+    /* === ESTILOS BOTONES SILO CONTROL === */
+    .silo-control-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem;
+        margin: 0; /* Margin handled by gap in btn-group */
+        border-radius: 0.5rem; /* Bordes más suaves */
+        transition: all 0.3s ease;
+        min-width: 75px; /* Ancho mínimo para consistencia */
+        font-size: 0.75rem; /* Texto más pequeño */
+        text-align: center;
+        border: 1px solid transparent; /* Borde base */
+        line-height: 1.2; /* Adjust line height for better text display */
+        cursor: pointer;
+    }
+    .silo-control-btn i {
+        font-size: 1.4rem; /* Tamaño de ícono */
+        margin-bottom: 0.25rem;
+    }
+    .silo-control-btn:hover {
+        transform: translateY(-2px); /* Efecto sutil al pasar el mouse */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .silo-control-btn.active {
+        box-shadow: inset 0 0 0 2px rgba(0, 123, 255, 0.5), 0 2px 4px rgba(0,0,0,0.05);
+        font-weight: bold;
+    }
+
+    /* Colores específicos y manejo de hover/active */
+    .btn-auto { background-color: #e9f5ff; color: #007bff; border-color: #b8dfff; }
+    .btn-auto:hover, .btn-auto.active { background-color: #007bff; color: white; border-color: #0056b3;}
+    .btn-auto.active i, .btn-auto:hover i { color: white; } 
+
+    .btn-on { background-color: #e6ffed; color: #28a745; border-color: #b3e0bd;}
+    .btn-on:hover, .btn-on.active { background-color: #28a745; color: white; border-color: #1c7430;}
+    .btn-on.active i, .btn-on:hover i { color: white; }
+
+    .btn-off { background-color: #ffebee; color: #dc3545; border-color: #f5c6cb;}
+    .btn-off:hover, .btn-off.active { background-color: #dc3545; color: white; border-color: #b02a37;}
+    .btn-off.active i, .btn-off:hover i { color: white; }
+
+    .btn-temp { background-color: #e3f2fd; color: #17a2b8; border-color: #add8e6;}
+    .btn-temp:hover, .btn-temp.active { background-color: #17a2b8; color: white; border-color: #10707f;}
+    .btn-temp i { color: #17a2b8; } 
+    .btn-temp:hover i, .btn-temp.active i { color: white; }
+
+    .btn-intel { background-color: #fff8e1; color: #ffc107; border-color: #ffeeba;}
+    .btn-intel:hover, .btn-intel.active { background-color: #ffc107; color: #343a40; border-color: #d39e00;}
+    .btn-intel i { color: #ffc107; } 
+    .btn-intel:hover i, .btn-intel.active i { color: #343a40; }
+
+    /* Ajustar btn-group para el nuevo estilo de botones */
+    .silo-actions .btn-group,
+    .silo-actions-mobile .btn-group {
+        display: flex;
+        flex-wrap: wrap; 
+        justify-content: center; 
+        gap: 0.4rem; 
+    }
+    /* === FIN ESTILOS BOTONES SILO CONTROL === */
+    @media (max-width: 768px) {
+        .hour-grid {
+            grid-template-columns: repeat(6, 1fr);  /* 6 columnas en pantallas más pequeñas */
+        }
+    }
+    @media (max-width: 576px) {
+        .hour-grid {
+            grid-template-columns: repeat(4, 1fr);  /* 4 columnas en pantallas muy pequeñas */
+        }
+    }
+    .current-conditions {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .condition-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .condition-item:last-child {
+        border-bottom: none;
+    }
+    .condition-label {
+        font-weight: 500;
+        color: #495057;
+    }
+    .condition-value {
+        font-weight: bold;
+        color: #212529;
+    }
+    .condition-value.in-range {
+        color: #28a745;
+    }
+    .condition-value.out-of-range {
+        color: #dc3545;
+    }
+    /* Estilo para filas seleccionadas */
+    .silo-row.selected {
+        box-shadow: inset 0 0 0 2px #007bff !important;
+        border-left: 4px solid #007bff !important;
+        position: relative;
+        z-index: 1;
+    }
+    .mode-btn:disabled {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+    /* Estilos para pantallas pequeñas (ej. móviles) */
+    @media (max-width: 768px) {
+        /* Hacer la tabla potencialmente scrollable si el contenido es muy ancho */
+        .table-responsive-sm {
+            overflow-x: auto;
+        }
+        /* Reducir padding en celdas de la tabla */
+        .table td, .table th {
+             padding: 0.5rem; 
+        }
+        /* Hacer que la sección de detalles y formulario ocupen todo el ancho */
+        .silo-details-section, .silo-config-form {
+             flex-basis: 100%;
+        }
+    }
+    
+    /* Asegurar que el texto sea legible en todos los fondos de color */
+    .silo-row td {
+        color: #212529;
+        font-weight: 500;
+    }
+</style>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-warehouse fa-4x text-primary mb-3"></i>
+                        <h2 class="card-title">Configuración de Silo</h2>
+                    </div>
+
+                    {% with messages = get_flashed_messages() %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-info">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Silos y Estado Actual</h5>
+                                {% if current_user.role == 'super_admin' %}
+                                <div class="d-flex align-items-center">
+                                    <label for="establishmentFilter" class="me-2 mb-0" style="white-space: nowrap;">Filtrar por establecimiento:</label>
+                                    <select id="establishmentFilter" class="form-select form-select-sm" style="min-width: 200px;">
+                                        <option value="">Todos los establecimientos</option>
+                                        {% for establishment in all_establishments %}
+                                        <option value="{{ establishment.id }}" {% if selected_establishment_id == establishment.id %}selected{% endif %}>
+                                            {{ establishment.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-hover mb-0" id="silosTable">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Establecimiento</th>
+                                        <th>Estado</th>
+                                        <th class="d-none d-md-table-cell">Control Manual</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for status in silos_status %}
+                                    {% set establishment_color = status.silo.establishment.id % 6 %}
+                                    {% set is_even = loop.index0 % 2 == 0 %}
+                                    
+                                    {% if establishment_color == 0 %}
+                                        {% if is_even %}
+                                            {% set bg_color = "#d4edda" %}
+                                        {% else %}
+                                            {% set bg_color = "#a3cfbb" %}
+                                        {% endif %}
+                                    {% elif establishment_color == 1 %}
+                                        {% if is_even %}
+                                            {% set bg_color = "#d1ecf1" %}
+                                        {% else %}
+                                            {% set bg_color = "#9fcdda" %}
+                                        {% endif %}
+                                    {% elif establishment_color == 2 %}
+                                        {% if is_even %}
+                                            {% set bg_color = "#f8d7da" %}
+                                        {% else %}
+                                            {% set bg_color = "#e4b1b6" %}
+                                        {% endif %}
+                                    {% elif establishment_color == 3 %}
+                                        {% if is_even %}
+                                            {% set bg_color = "#fff3cd" %}
+                                        {% else %}
+                                            {% set bg_color = "#ffe69c" %}
+                                        {% endif %}
+                                    {% elif establishment_color == 4 %}
+                                        {% if is_even %}
+                                            {% set bg_color = "#e2e3e5" %}
+                                        {% else %}
+                                            {% set bg_color = "#c6c8ca" %}
+                                        {% endif %}
+                                    {% elif establishment_color == 5 %}
+                                        {% if is_even %}
+                                            {% set bg_color = "#d8d4f1" %}
+                                        {% else %}
+                                            {% set bg_color = "#b9b3da" %}
+                                        {% endif %}
+                                    {% endif %}
+                                    
+                                    <tr class="silo-row" data-silo-id="{{ status.silo.id }}"
+                                        data-min-temp="{{ status.silo.min_temperature }}"
+                                        data-max-temp="{{ status.silo.max_temperature }}"
+                                        data-min-hum="{{ status.silo.min_humidity }}"
+                                        data-max-hum="{{ status.silo.max_humidity }}"
+                                        data-peak="{{ 'True' if status.silo.peak_hours_shutdown else 'False' }}"
+                                        data-airstart="{{ status.silo.air_start_hour }}"
+                                        data-airend="{{ status.silo.air_end_hour }}"
+                                        data-use-sun="{{ 'True' if status.silo.use_sun_schedule else 'False' }}"
+                                        data-manual-mode="{{ status.silo.manual_mode }}"
+                                        style="background-color: {{ bg_color }};">
+                                        <td>{{ status.silo.name }}</td>
+                                        <td>{{ status.silo.establishment.name }}</td>
+                                        <td>
+                                            <div>
+                                                {% if status.device_status_info %}
+                                                    <span>Dispositivo: </span>
+                                                    <span class="badge 
+                                                        {% if status.device_status_info.status == 'online' %}bg-success
+                                                        {% elif status.device_status_info.status == 'warning' %}bg-warning text-dark
+                                                        {% elif status.device_status_info.status == 'offline' %}bg-danger
+                                                        {% else %}bg-secondary{% endif %}">
+                                                        {{ status.device_status_info.status_message }}
+                                                    </span>
+                                                    {% if (status.device_status_info.status == 'offline' or status.device_status_info.status == 'warning') and status.device_status_info.last_heartbeat_offline %}
+                                                        <small class="text-muted d-block" style="font-size: 0.8em;">Últ. vez: {{ status.device_status_info.last_heartbeat_offline }}</small>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span>Dispositivo: </span><span class="badge bg-secondary">No Info</span>
+                                                {% endif %}
+                                            </div>
+                                            <div style="margin-top: 4px;">
+                                                <span>Aireador: </span>
+                                                {% if status.should_operate %}
+                                                    <i class="fas fa-fan text-success" title="Aireador Recomendado: Encendido"></i>
+                                                    <span style="font-size: 0.9em;">Encendido</span>
+                                                {% else %}
+                                                    <i class="fas fa-fan text-danger" title="Aireador Recomendado: Apagado"></i>
+                                                    <span style="font-size: 0.9em;">Apagado</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td class="silo-actions d-none d-md-table-cell">
+                                             <div class="btn-group" role="group">
+                                                <button type="button" class="btn silo-control-btn btn-auto mode-btn {% if status.mode == 'auto' %}active{% endif %}" data-mode="auto" data-silo-id="{{ status.silo.id }}" title="Modo Automático">
+                                                    <i class="fas fa-robot"></i>
+                                                    Automático
+                                                </button>
+                                                <button type="button" class="btn silo-control-btn btn-on mode-btn {% if status.mode == 'manual' and status.silo.manual_mode == 'on' %}active{% endif %}" data-mode="on" data-silo-id="{{ status.silo.id }}" title="Encender Aireador">
+                                                    <i class="fas fa-toggle-on"></i>
+                                                    Encender
+                                                </button>
+                                                <button type="button" class="btn silo-control-btn btn-off mode-btn {% if status.mode == 'manual' and status.silo.manual_mode == 'off' %}active{% endif %}" data-mode="off" data-silo-id="{{ status.silo.id }}" title="Apagar Aireador">
+                                                    <i class="fas fa-toggle-off"></i>
+                                                    Apagar
+                                                </button>
+                                                {% if status.silo.barra_sensores_asociada %}
+                                                    <a href="{{ url_for('view_silo_temperatures', silo_id=status.silo.id) }}" class="btn silo-control-btn btn-temp" title="Ver Temperaturas">
+                                                        <i class="fas fa-thermometer-half"></i>
+                                                        Temp.
+                                                    </a>
+                                                    <a href="{{ url_for('intelligent_silo_settings', silo_id=status.silo.id) }}" class="btn silo-control-btn btn-intel mode-btn {% if status.mode == 'intelligent' %}active{% endif %}" data-mode="ia" data-silo-id="{{ status.silo.id }}" title="Modo Inteligente">
+                                                        <i class="fas fa-brain"></i>
+                                                        IA
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                         </td>
+                                     </tr>
+                                     <tr class="silo-actions-mobile d-md-none" style="background-color: {{ bg_color }};">
+                                         <td colspan="5" class="text-center py-2">
+                                              <div class="btn-group" role="group">
+                                                <button type="button" class="btn silo-control-btn btn-auto mode-btn {% if status.mode == 'auto' %}active{% endif %}" data-mode="auto" data-silo-id="{{ status.silo.id }}" title="Modo Automático">
+                                                    <i class="fas fa-robot"></i>
+                                                    Automático
+                                                </button>
+                                                <button type="button" class="btn silo-control-btn btn-on mode-btn {% if status.mode == 'manual' and status.silo.manual_mode == 'on' %}active{% endif %}" data-mode="on" data-silo-id="{{ status.silo.id }}" title="Encender Aireador">
+                                                    <i class="fas fa-toggle-on"></i>
+                                                    Encender
+                                                </button>
+                                                <button type="button" class="btn silo-control-btn btn-off mode-btn {% if status.mode == 'manual' and status.silo.manual_mode == 'off' %}active{% endif %}" data-mode="off" data-silo-id="{{ status.silo.id }}" title="Apagar Aireador">
+                                                    <i class="fas fa-toggle-off"></i>
+                                                    Apagar
+                                                </button>
+                                                {% if status.silo.barra_sensores_asociada %}
+                                                    <a href="{{ url_for('view_silo_temperatures', silo_id=status.silo.id) }}" class="btn silo-control-btn btn-temp" title="Ver Temperaturas">
+                                                        <i class="fas fa-thermometer-half"></i>
+                                                        Temp.
+                                                    </a>
+                                                    <a href="{{ url_for('intelligent_silo_settings', silo_id=status.silo.id) }}" class="btn silo-control-btn btn-intel mode-btn {% if status.mode == 'intelligent' %}active{% endif %}" data-mode="ia" data-silo-id="{{ status.silo.id }}" title="Modo Inteligente">
+                                                        <i class="fas fa-brain"></i>
+                                                        IA
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                          </td>
+                                      </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <form method="POST" id="siloForm">
+                        <input type="hidden" id="silo_id" name="silo_id" />
+                        <div class="mb-4">
+                            <label for="min_temperature" class="form-label">Temperatura Mínima (°C)</label>
+                            <input type="number" class="form-control" id="min_temperature" name="min_temperature" 
+                                   step="0.1" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="max_temperature" class="form-label">Temperatura Máxima (°C)</label>
+                            <input type="number" class="form-control" id="max_temperature" name="max_temperature" 
+                                   step="0.1" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="min_humidity" class="form-label">Humedad Mínima (%)</label>
+                            <input type="number" class="form-control" id="min_humidity" name="min_humidity" 
+                                   step="0.1" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="max_humidity" class="form-label">Humedad Máxima (%)</label>
+                            <input type="number" class="form-control" id="max_humidity" name="max_humidity" 
+                                   step="0.1" required>
+                        </div>
+
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="restrict_air_time" name="restrict_air_time" checked>
+                            <label class="form-check-label" for="restrict_air_time">
+                                Restringir aireación a un rango horario
+                            </label>
+                        </div>
+                        
+                        <div id="air_time_options" style="margin-left: 20px;">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" id="use_manual_schedule" name="schedule_type" value="manual" checked>
+                                <label class="form-check-label" for="use_manual_schedule">
+                                    <i class="fas fa-clock"></i> Horario manual
+                                </label>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" id="use_sun_schedule" name="schedule_type" value="sun">
+                                <label class="form-check-label" for="use_sun_schedule">
+                                    <i class="fas fa-sun"></i> Horario basado en horas de sol
+                                </label>
+                                <small class="form-text text-muted d-block" style="margin-left: 20px;">
+                                    Opera 1 hora después del amanecer hasta 1 hora antes del atardecer (para asegurar energía de paneles solares). No funciona si está nublado.
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div id="air_time_range_fields">
+                            <label class="form-label">Horario de Aireación Manual</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="air_start_hour" class="form-label">Desde (hora)</label>
+                                    <input type="number" class="form-control" id="air_start_hour" name="air_start_hour" min="0" max="23" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="air_end_hour" class="form-label">Hasta (hora)</label>
+                                    <input type="number" class="form-control" id="air_end_hour" name="air_end_hour" min="0" max="23" required>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Ejemplo: Desde 23 hasta 6 permite airear sólo de noche.</small>
+                        </div>
+                        
+                        <div id="sun_schedule_info" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Horario Solar:</strong> El sistema calculará automáticamente las horas de amanecer y atardecer 
+                                para su ubicación, agregando 1 hora después del amanecer y terminando 1 hora antes del atardecer 
+                                para asegurar suficiente energía de los paneles solares. Si no puede obtener los datos, usará el horario 9:00 - 17:00 como respaldo.
+                                <br><small>No operará durante días nublados o con alta probabilidad de lluvia.</small>
+                            </div>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="peak_hours_shutdown" 
+                                   name="peak_hours_shutdown">
+                            <label class="form-check-label" for="peak_hours_shutdown">
+                                Apagar durante horas pico
+                            </label>
+                        </div>
+
+                        <div id="operationHoursGrid" class="hour-grid mb-4" style="display: none;">
+                            <!-- Los cuadros de horas se generarán dinámicamente con JavaScript -->
+                        </div>
+
+                        <div id="currentConditions" class="current-conditions" style="display: none;">
+                            <h5 class="mb-3">Condiciones Actuales</h5>
+                            <p>
+                                Temperatura: <span id="currentTemp" class="condition-value">--</span> 
+                                <span class="range-label">(<span id="tempRange">--</span>)</span>
+                            </p>
+                            <p>
+                                Humedad: <span id="currentHum" class="condition-value">--</span> 
+                                <span class="range-label">(<span id="humRange">--</span>)</span>
+                            </p>
+                            <p>Lluvia (prob): <span id="currentRain" class="condition-value">--</span></p>
+                            <p>Estado Operación: <span id="currentStatus" class="condition-value">--</span></p>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary mb-2">Guardar Cambios</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateOperationHours(siloId) {
+    const operationHoursGrid = document.getElementById('operationHoursGrid');
+    const currentConditionsDiv = document.getElementById('currentConditions'); 
+
+    if (!operationHoursGrid || !currentConditionsDiv) {
+        console.error('Error Crítico: El contenedor de la cuadrícula (operationHoursGrid) o de condiciones (currentConditions) no existe en el DOM.');
+        return; 
+    }
+
+    operationHoursGrid.innerHTML = ''; 
+    operationHoursGrid.style.display = 'none';
+    currentConditionsDiv.style.display = 'none'; 
+    
+    fetch(`/silo/${siloId}/operation-hours`) 
+        .then(response => response.json())
+        .then(data => {
+            if (!data || data.length === 0) {
+                console.error('No se recibieron datos de operación o el pronóstico está desactualizado.');
+                operationHoursGrid.innerHTML = '<div class="alert alert-warning" role="alert">No hay datos de pronóstico disponibles para las próximas horas. Por favor, intente más tarde.</div>';
+                operationHoursGrid.style.display = 'block';
+                currentConditionsDiv.style.display = 'none';
+                return;
+            }
+
+            const selectedRow = document.querySelector('.silo-row.selected');
+            if (!selectedRow) return; 
+            const siloData = selectedRow.dataset;
+
+            const tempSpan = document.getElementById('currentTemp');
+            const humSpan = document.getElementById('currentHum');
+            const rainSpan = document.getElementById('currentRain');
+            const statusSpan = document.getElementById('currentStatus');
+            const tempRangeSpan = document.getElementById('tempRange');
+            const humRangeSpan = document.getElementById('humRange');
+
+            if (!tempSpan || !humSpan || !rainSpan || !statusSpan || !tempRangeSpan || !humRangeSpan) {
+                 console.error('Error: No se encontró uno o más spans de condiciones (currentTemp, currentHum, currentRain, currentStatus, tempRange, humRange) dentro de #currentConditions.');
+                 // Podríamos continuar sin actualizar esos spans, o detenernos.
+                 // Por ahora, mostraremos el error y continuaremos para mostrar la cuadrícula si es posible.
+                 // return; 
+            }
+
+            const currentHourData = data[0]; 
+            const conditions = currentHourData.conditions;
+
+            if (tempSpan) {
+                tempSpan.textContent = `${conditions.temperature.value}°C`;
+                tempSpan.className = `condition-value ${conditions.temperature.in_range ? 'in-range' : 'out-of-range'}`;
+            }
+            if (humSpan) {
+                humSpan.textContent = `${conditions.humidity.value}%`;
+                humSpan.className = `condition-value ${conditions.humidity.in_range ? 'in-range' : 'out-of-range'}`;
+            }
+            if (rainSpan) {
+                rainSpan.textContent = `${conditions.precipitation.value}%`;
+                rainSpan.className = `condition-value ${conditions.precipitation.ok ? 'in-range' : 'out-of-range'}`;
+            }
+            if (statusSpan) {
+                statusSpan.textContent = currentHourData.safe_to_operate ? 'Operando' : 'Detenido';
+            }
+            if (tempRangeSpan) {
+                tempRangeSpan.textContent = `${siloData.minTemp}°C - ${siloData.maxTemp}°C`;
+            }
+            if (humRangeSpan) {
+                humRangeSpan.textContent = `${siloData.minHum}% - ${siloData.maxHum}%`;
+            }
+           
+            currentConditionsDiv.style.display = 'block'; 
+            
+            data.forEach(hour => {
+                const hourBox = document.createElement('div');
+                hourBox.className = `hour-box ${hour.safe_to_operate ? 'active' : 'inactive'}`;
+                
+                const hourOnly = hour.hour.split(' ')[1].split(':')[0];
+                
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'time';
+                timeDiv.textContent = hourOnly;
+                
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status';
+                if (hour.safe_to_operate) {
+                    statusDiv.innerHTML = '<i class="fas fa-fan fa-spin"></i>';
+                }
+                
+                const reasonsDiv = document.createElement('div');
+                reasonsDiv.className = 'reasons';
+                
+                if (!hour.safe_to_operate) {
+                    const hourConditions = hour.conditions;
+                    const peakHoursEnabled = siloData.peak === 'True'; 
+                    
+                    if (!hourConditions.temperature.in_range) {
+                        reasonsDiv.innerHTML += '<i class="fas fa-thermometer-half" title="Temperatura fuera de rango"></i>';
+                    }
+                    if (!hourConditions.humidity.in_range) {
+                        reasonsDiv.innerHTML += '<i class="fas fa-tint" title="Humedad fuera de rango"></i>';
+                    }
+                    if (!hourConditions.precipitation.ok) {
+                        reasonsDiv.innerHTML += '<i class="fas fa-cloud-rain" title="Probabilidad de lluvia alta"></i>';
+                    }
+                    if (hourConditions.peak_hours.is_peak_hour && peakHoursEnabled) {
+                        reasonsDiv.innerHTML += '<i class="fas fa-clock" title="Hora pico"></i>';
+                    }
+                    if (hourConditions.air_time.use_sun_schedule && hourConditions.air_time.cloudy) {
+                        reasonsDiv.innerHTML += '<i class="fas fa-cloud" title="Clima nublado - horario solar deshabilitado"></i>';
+                    }
+                    if (!hourConditions.air_time.in_range) {
+                        if (hourConditions.air_time.use_sun_schedule) {
+                            reasonsDiv.innerHTML += '<i class="fas fa-sun" title="Fuera del horario solar permitido"></i>';
+                        } else {
+                            reasonsDiv.innerHTML += '<i class="fas fa-clock" title="Fuera del horario permitido"></i>';
+                        }
+                    }
+                }
+                
+                const tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                
+                let horarioInfo = '';
+                if (hour.conditions.air_time.use_sun_schedule) {
+                    const sunHours = hour.conditions.air_time.sun_hours;
+                    horarioInfo = `Horario Solar: ${sunHours.sunrise_hour}h-${sunHours.sunset_hour}h`;
+                    if (hour.conditions.air_time.cloudy) {
+                        horarioInfo += ' (Nublado ✗)';
+                    } else {
+                        horarioInfo += ` (${hour.conditions.air_time.in_range ? '✓' : '✗'})`;
+                    }
+                } else {
+                    horarioInfo = `Horario: ${hour.conditions.air_time.start}h-${hour.conditions.air_time.end}h (${hour.conditions.air_time.in_range ? '✓' : '✗'})`;
+                }
+                
+                tooltip.innerHTML = `
+                    Temp: ${hour.conditions.temperature.value}°C (${hour.conditions.temperature.in_range ? '✓' : '✗'})<br>
+                    Hum: ${hour.conditions.humidity.value}% (${hour.conditions.humidity.in_range ? '✓' : '✗'})<br>
+                    Lluvia: ${hour.conditions.precipitation.value}% (${hour.conditions.precipitation.ok ? '✓' : '✗'})<br>
+                    ${hour.conditions.peak_hours.is_peak_hour ? 'Hora Pico' : 'Hora Normal'}<br>
+                    ${horarioInfo}
+                `;
+                
+                hourBox.appendChild(tooltip);
+                hourBox.appendChild(timeDiv);
+                hourBox.appendChild(statusDiv);
+                hourBox.appendChild(reasonsDiv);
+                
+                operationHoursGrid.appendChild(hourBox);
+            });
+            
+            operationHoursGrid.style.display = 'grid';
+        })
+        .catch(error => {
+            console.error('Error fetching operation hours:', error);
+            alert('Error al obtener el estado de operación del silo. Verifique la consola.');
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Elementos para controlar el horario de aireación
+    const restrictCheckbox = document.getElementById('restrict_air_time');
+    const airTimeFieldsDiv = document.getElementById('air_time_range_fields');
+    const startHourInput = document.getElementById('air_start_hour');
+    const endHourInput = document.getElementById('air_end_hour');
+
+    // Función para mostrar/ocultar campos de horario y ajustar 'required'
+    function toggleAirTimeFields() {
+        if (!restrictCheckbox || !airTimeFieldsDiv || !startHourInput || !endHourInput) return;
+
+        const airTimeOptions = document.getElementById('air_time_options');
+        const sunScheduleInfo = document.getElementById('sun_schedule_info');
+        const manualScheduleRadio = document.getElementById('use_manual_schedule');
+        const sunScheduleRadio = document.getElementById('use_sun_schedule');
+
+        if (restrictCheckbox.checked) {
+            airTimeOptions.style.display = 'block';
+            
+            // Verificar qué tipo de horario está seleccionado
+            if (sunScheduleRadio && sunScheduleRadio.checked) {
+                // Horario solar seleccionado
+                airTimeFieldsDiv.style.display = 'none';
+                sunScheduleInfo.style.display = 'block';
+                startHourInput.required = false;
+                startHourInput.disabled = true;
+                endHourInput.required = false;
+                endHourInput.disabled = true;
+            } else {
+                // Horario manual seleccionado
+                airTimeFieldsDiv.style.display = 'block';
+                sunScheduleInfo.style.display = 'none';
+                startHourInput.required = true;
+                startHourInput.disabled = false;
+                endHourInput.required = true;
+                endHourInput.disabled = false;
+            }
+        } else {
+            // Sin restricción de horario
+            airTimeOptions.style.display = 'none';
+            airTimeFieldsDiv.style.display = 'none';
+            sunScheduleInfo.style.display = 'none';
+            startHourInput.required = false;
+            startHourInput.disabled = true;
+            endHourInput.required = false;
+            endHourInput.disabled = true;
+        }
+    }
+
+    // Verificar si los elementos existen antes de añadir listeners
+    if (restrictCheckbox && airTimeFieldsDiv && startHourInput && endHourInput) {
+        // Añadir listener al checkbox para cambios
+        restrictCheckbox.addEventListener('change', toggleAirTimeFields);
+        
+        // Añadir listeners a los radio buttons
+        const manualScheduleRadio = document.getElementById('use_manual_schedule');
+        const sunScheduleRadio = document.getElementById('use_sun_schedule');
+        
+        if (manualScheduleRadio && sunScheduleRadio) {
+            manualScheduleRadio.addEventListener('change', toggleAirTimeFields);
+            sunScheduleRadio.addEventListener('change', toggleAirTimeFields);
+        }
+        
+        // Establecer el estado inicial al cargar la página
+        toggleAirTimeFields();
+    } else {
+        console.error('Error: No se encontraron los elementos necesarios para controlar los campos de horario de aireación.');
+    }
+    
+    // --- Lógica existente para seleccionar silos --- 
+    document.querySelectorAll('.silo-row').forEach(function(row) {
+        // Event listener para el clic DIRECTO en la fila
+        row.addEventListener('click', function() {
+            // 1. Resaltar la fila seleccionada (quitar selección de otras)
+            document.querySelectorAll('.silo-row.selected').forEach(function(r) { r.classList.remove('selected'); });
+            this.classList.add('selected');
+
+            // --- RESTAURADO: Rellenar los campos del formulario con datos de la fila ---
+            document.getElementById('silo_id').value = this.dataset.siloId;
+            document.getElementById('min_temperature').value = this.dataset.minTemp;
+            document.getElementById('max_temperature').value = this.dataset.maxTemp;
+            document.getElementById('min_humidity').value = this.dataset.minHum;
+            document.getElementById('max_humidity').value = this.dataset.maxHum;
+            document.getElementById('peak_hours_shutdown').checked = this.dataset.peak === 'True';
+            
+            // Lógica para el horario de aireación
+            const airStart = parseInt(this.dataset.airstart);
+            const airEnd = parseInt(this.dataset.airend);
+            const useSun = this.dataset.useSun === 'True';
+            const restrictAirTimeCheckbox = document.getElementById('restrict_air_time');
+            const airTimeFields = document.getElementById('air_time_range_fields');
+            const airTimeOptions = document.getElementById('air_time_options');
+            const manualScheduleRadio = document.getElementById('use_manual_schedule');
+            const sunScheduleRadio = document.getElementById('use_sun_schedule');
+
+            if (airStart === 0 && airEnd === 23 && !useSun) { // Sin restricción
+                restrictAirTimeCheckbox.checked = false;
+                airTimeFields.style.display = 'none';
+                airTimeOptions.style.display = 'none';
+            } else {
+                restrictAirTimeCheckbox.checked = true;
+                airTimeOptions.style.display = 'block';
+                
+                if (useSun) {
+                    sunScheduleRadio.checked = true;
+                    manualScheduleRadio.checked = false;
+                    airTimeFields.style.display = 'none';
+                    document.getElementById('sun_schedule_info').style.display = 'block';
+                } else {
+                    manualScheduleRadio.checked = true;
+                    sunScheduleRadio.checked = false;
+                    airTimeFields.style.display = 'block';
+                    document.getElementById('sun_schedule_info').style.display = 'none';
+                    document.getElementById('air_start_hour').value = airStart;
+                    document.getElementById('air_end_hour').value = airEnd;
+                }
+            }
+            toggleAirTimeFields(); 
+            // --- FIN RESTAURADO ---
+            
+            // 2. Llamar a updateOperationHours para mostrar la cuadrícula y condiciones
+            updateOperationHours(this.dataset.siloId);
+        });
+    });
+
+    // --- NUEVO: Listener delegado en la tabla para TODOS los botones .mode-btn ---
+    const tableBody = document.querySelector('#silosTable tbody');
+    if (tableBody) { // Asegurarse de que tbody existe
+        tableBody.addEventListener('click', function(e) {
+            const button = e.target.closest('.mode-btn');
+
+            if (button) {
+                e.stopPropagation(); // Evitar que el clic se propague a la fila
+
+                const siloId = button.dataset.siloId;
+                const mode = button.dataset.mode;
+
+                console.log(`Botón presionado. Enviando -> Silo ID: ${siloId}, Modo: ${mode}`);
+
+                // Encontrar la fila de datos principal asociada
+                let mainRow = button.closest('.silo-row');
+                if (!mainRow) { // Si no está en .silo-row, debe estar en la fila móvil
+                    const mobileRow = button.closest('.silo-actions-mobile');
+                    if (mobileRow) {
+                        mainRow = mobileRow.previousElementSibling; // La fila principal es la anterior
+                    }
+                }
+
+                if (!mainRow) {
+                    console.error('No se pudo encontrar la fila principal asociada al botón.');
+                    return;
+                }
+
+                // Rellenar el formulario y seleccionar la fila
+                document.getElementById('silo_id').value = mainRow.dataset.siloId;
+                document.getElementById('min_temperature').value = mainRow.dataset.minTemp;
+                document.getElementById('max_temperature').value = mainRow.dataset.maxTemp;
+                document.getElementById('min_humidity').value = mainRow.dataset.minHum;
+                document.getElementById('max_humidity').value = mainRow.dataset.maxHum;
+                document.getElementById('peak_hours_shutdown').checked = mainRow.dataset.peak === 'True';
+                
+                if (!mainRow.classList.contains('selected')) {
+                    document.querySelectorAll('.silo-row.selected').forEach(r => r.classList.remove('selected'));
+                    mainRow.classList.add('selected');
+                    updateOperationHours(siloId);
+                }
+
+                fetch(`/silo/${siloId}/set_mode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mode: mode })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Respuesta del servidor:', data);
+                    if (data.success) {
+                        mainRow.dataset.mode = data.current_mode;
+                        mainRow.dataset.manualMode = data.manual_mode_status;
+
+                        const allSiloModeButtons = document.querySelectorAll(`.mode-btn[data-silo-id="${siloId}"]`);
+                        allSiloModeButtons.forEach(b => b.classList.remove('active'));
+
+                        const targetButtonSelector = data.current_mode === 'manual' ? data.manual_mode_status : data.current_mode;
+                        const buttonsToActivate = document.querySelectorAll(`.mode-btn[data-silo-id="${siloId}"][data-mode="${targetButtonSelector}"]`);
+                        buttonsToActivate.forEach(b => b.classList.add('active'));
+
+                        updateOperationHours(siloId);
+                    } else {
+                        console.error('El servidor indicó un fallo:', data.error);
+                        // Opcional: alert(`Error: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error en fetch al cambiar el modo del silo:', error);
+                });
+            }
+        });
+    }
+    // --- FIN NUEVO Listener ---
+
+    // Inicializar estado visual de los botones de modo al cargar (ahora afecta a ambos juegos)
+    document.querySelectorAll('.silo-row').forEach(function(row) {
+        const mode = row.dataset.manualMode;
+        const siloId = row.dataset.siloId;
+        // Actualizar botones en ambas filas (principal y móvil) si existen
+        document.querySelectorAll('.mode-btn[data-silo-id="' + siloId + '"]').forEach(function(btn) {
+            if (btn.dataset.mode === mode) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    });
+
+    // Lógica para el toggle del horario de aireación en el formulario
+    document.getElementById('restrict_air_time').addEventListener('change', function() {
+        const airTimeFields = document.getElementById('air_time_range_fields');
+        if (this.checked) {
+            airTimeFields.style.display = '';
+        } else {
+            airTimeFields.style.display = 'none';
+        }
+    });
+
+    // Filtro de establecimiento (solo para super_admin)
+    const establishmentFilter = document.getElementById('establishmentFilter');
+    if (establishmentFilter) {
+        establishmentFilter.addEventListener('change', function() {
+            const selectedEstablishmentId = this.value;
+            const currentUrl = new URL(window.location.href);
+            
+            if (selectedEstablishmentId) {
+                currentUrl.searchParams.set('establishment_id', selectedEstablishmentId);
+            } else {
+                currentUrl.searchParams.delete('establishment_id');
+            }
+            
+            // Recargar la página con el nuevo filtro
+            window.location.href = currentUrl.toString();
+        });
+    }
+});
+</script>
+{% endblock %}

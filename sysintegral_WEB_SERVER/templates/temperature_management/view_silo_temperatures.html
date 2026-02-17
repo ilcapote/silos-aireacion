@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Temperaturas del Silo{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h1>Temperaturas del Silo: {{ silo_nombre }}</h1>
+    <p class="text-muted">Temperaturas de los sensores instalados en la barra asociada a este silo.</p>
+    <p><strong>ID del silo:</strong> {{ silo_id }}</p>
+    
+    {% if barra %}
+        <h4>Barra: {{ barra.nombre }}</h4>
+        <div class="row mb-4">
+            {% for item in ultimas_lecturas %}
+                {% if item.sensor.sensor_id and item.lectura %}
+                    {% set temp = item.lectura.temperatura %}
+                    {% set color = "" %}
+                    {% if temp > 26 %}
+                        {% set color = "#ff4d4d" %} {# Rojo #}
+                    {% elif temp > 22 %}
+                        {% set color = "#ff9900" %} {# Naranja #}
+                    {% elif temp > 20 %}
+                        {% set color = "#ffe066" %} {# Amarillo #}
+                    {% elif temp > 17 %}
+                        {% set color = "#5be37d" %} {# Verde #}
+                    {% else %}
+                        {% set color = "#4dcaff" %} {# Celeste #}
+                    {% endif %}
+                    <div class="col-12 col-sm-6 col-md-3 mb-3">
+                        <div class="card" style="background-color: {{ color }}; border-radius: 10px;">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Sensor {{ item.sensor.position }}</h6>
+                                <p class="mb-1"><small>{{ item.sensor.serial_number or '-' }}</small></p>
+                                <h3 class="display-6">
+                                    {{ temp|round(1) }}°C
+                                </h3>
+                                <p class="mb-0"><small>{{ item.lectura.timestamp.strftime('%d/%m/%Y %H:%M') }}</small></p>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <hr>
+
+        <h5>Evolución de Temperaturas (Últimos 30 días)</h5>
+        <div class="chart-container" style="height: 50vh; max-height: 500px;">
+            <canvas id="heatmapChart"></canvas>
+        </div>
+
+        <!-- 1. Chart.js Core -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+        <!-- 2. Date Adapter y librería date-fns -->
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+        <!-- 3. Matrix Plugin para Heatmap -->
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+
+
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const heatmapData = {{ heatmap_data|tojson|safe }};
+                const sensorLabels = {{ sensor_labels|tojson|safe }};
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+                if (heatmapData.length === 0) {
+                    const container = document.querySelector('.chart-container');
+                    container.innerHTML = '<p class="text-center text-muted mt-5">No hay datos de temperatura en los últimos 30 días para mostrar.</p>';
+                    return;
+                }
+
+                const minTemp = 17;
+                const maxTemp = 30;
+
+                function getHeatmapColor(value) {
+                    if (value === null || value === undefined) {
+                        return 'rgba(230, 230, 230, 0.5)'; // Gris para datos nulos
+                    }
+
+                    // Forzar el valor dentro del rango [17, 30] para el cálculo del color
+                    const clampedValue = Math.max(minTemp, Math.min(value, maxTemp));
+                    const ratio = (clampedValue - minTemp) / (maxTemp - minTemp);
+                    
+                    // Interpolar entre Morado oscuro (48, 25, 52) -> Rosa (221, 51, 133) -> Amarillo (253, 231, 37)
+                    let r, g, b;
+                    if (ratio < 0.5) {
+                        const localRatio = ratio * 2;
+                        r = 48 + (221 - 48) * localRatio;
+                        g = 25 + (51 - 25) * localRatio;
+                        b = 52 + (133 - 52) * localRatio;
+                    } else {
+                        const localRatio = (ratio - 0.5) * 2;
+                        r = 221 + (253 - 221) * localRatio;
+                        g = 51 + (231 - 51) * localRatio;
+                        b = 133 + (37 - 133) * localRatio;
+                    }
+                    return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+                }
+
+                const ctx = document.getElementById('heatmapChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'matrix',
+                    data: {
+                        datasets: [{
+                            label: 'Temperatura Promedio (°C)',
+                            data: heatmapData,
+                            backgroundColor: (context) => {
+                                const item = context.dataset.data[context.dataIndex];
+                                return item ? getHeatmapColor(item.v) : 'rgba(230, 230, 230, 0.5)';
+                            },
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: (context) => `Fecha: ${context[0].raw.x}`,
+                                    label: (context) => `${context.raw.y}: ${context.raw.v.toFixed(1)}°C`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day',
+                                    parser: 'yyyy-MM-dd',
+                                    displayFormats: { day: 'd MMM' }
+                                },
+                                min: thirtyDaysAgo.toISOString().split('T')[0],
+                                max: new Date().toISOString().split('T')[0],
+                                offset: false,
+                                grid: {
+                                    display: false,
+                                    drawBorder: false,
+                                    drawOnChartArea: false,
+                                    drawTicks: false
+                                },
+                                ticks: { autoSkip: true, maxRotation: 60, minRotation: 45 }
+                            },
+                            y: {
+                                type: 'category',
+                                labels: sensorLabels.reverse(), // Sensor 1 arriba
+                                offset: false,
+                                grid: {
+                                    display: false,
+                                    drawBorder: false,
+                                    drawOnChartArea: false,
+                                    drawTicks: false
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        </script>
+
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            Este silo no tiene una barra de sensores asociada.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

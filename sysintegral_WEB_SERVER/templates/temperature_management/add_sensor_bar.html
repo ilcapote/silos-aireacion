@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "temperature_management/form_sensor_bar.html" import render_bar_form %}
+
+{% block title %}Añadir Nueva Barra de Sensores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Añadir Nueva Barra de Sensores</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {# Crear un objeto 'bar_data' simulado para repoblar el formulario en caso de error POST #}
+    {% set bar_data_dict = {
+        'nombre': request.form.get('nombre', ''),
+        'establecimiento_id': request.form.get('establecimiento_id', '') | int if request.form.get('establecimiento_id') else None
+    } %}
+    {% for i in range(1, 9) %}
+        {% do bar_data_dict.update({'sensor' ~ i ~ '_id': request.form.get('sensor' ~ i ~ '_id', '') | int if request.form.get('sensor' ~ i ~ '_id') else None}) %}
+    {% endfor %}
+    
+    {{ render_bar_form(
+    url_for('add_sensor_bar'),
+    bar_data_dict if request.method == 'POST' else None,
+    establishments,
+    available_sensors,
+    None,
+    'Crear Barra'
+) }}
+</div>
+{% endblock %}

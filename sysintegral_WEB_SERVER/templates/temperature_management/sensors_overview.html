@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Vista General de Sensores{% endblock %}
+{% block extra_css %}
+<style>
+.establishment-section { margin-bottom: 30px; border: 1px solid #dee2e6; border-radius: 8px; }
+.establishment-header { background: #007bff; color: white; padding: 15px; }
+.status-activo { background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 12px; font-size: 0.75em; }
+.status-reciente { background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 12px; font-size: 0.75em; }
+.status-antiguo { background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 12px; font-size: 0.75em; }
+.status-muy_antiguo { background: #d1ecf1; color: #0c5460; padding: 4px 8px; border-radius: 12px; font-size: 0.75em; }
+.status-sin_datos { background: #e2e3e5; color: #383d41; padding: 4px 8px; border-radius: 12px; font-size: 0.75em; }
+.sensor-serial { font-family: monospace; background: #e9ecef; padding: 2px 6px; border-radius: 3px; }
+.temperature-value { font-weight: bold; color: #007bff; }
+.silo-group { background: #f8f9fa; font-weight: 600; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4"><i class="fas fa-thermometer-half text-primary me-2"></i>Vista General de Sensores</h1>
+    
+    <div class="alert alert-info">
+        <strong>Resumen:</strong> {{ total_establecimientos }} establecimientos | {{ total_sensores_sin_asignar }} sensores sin asignar
+    </div>
+
+    {% for establecimiento_data in datos_organizados %}
+    <div class="establishment-section">
+        <div class="establishment-header">
+            <h4 class="mb-1"><i class="fas fa-building me-2"></i>{{ establecimiento_data.establecimiento.name }}</h4>
+            <small>{{ establecimiento_data.establecimiento.owner }}</small>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Silo / Barra</th>
+                        <th>Pos.</th>
+                        <th>Serie</th>
+                        <th>Descripción</th>
+                        <th>Temperatura</th>
+                        <th>Última Lectura</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for silo_data in establecimiento_data.silos %}
+                        {% set sensores_activos = silo_data.sensores | selectattr('sensor') | list %}
+                        {% for sensor_data in sensores_activos %}
+                        <tr>
+                            {% if loop.first %}
+                            <td rowspan="{{ sensores_activos | length }}" class="silo-group">
+                                <strong>{{ silo_data.silo.name }}</strong><br>
+                                <small>{{ silo_data.barra.nombre }}</small>
+                            </td>
+                            {% endif %}
+                            <td><strong>{{ sensor_data.posicion }}</strong></td>
+                            <td><span class="sensor-serial">{{ sensor_data.sensor.numero_serie }}</span></td>
+                            <td>{{ sensor_data.sensor.descripcion or '-' }}</td>
+                            <td>
+                                {% if sensor_data.ultima_lectura %}
+                                <span class="temperature-value">{{ "%.1f"|format(sensor_data.ultima_lectura.temperatura) }}°C</span>
+                                {% else %}
+                                <span class="text-muted">Sin datos</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if sensor_data.ultima_lectura %}
+                                <div>{{ sensor_data.ultima_lectura.timestamp.strftime('%d/%m/%Y') }}</div>
+                                <small class="text-muted">{{ sensor_data.ultima_lectura.timestamp.strftime('%H:%M:%S') }}</small>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-{{ sensor_data.estado }}">{{ sensor_data.estado.replace('_', ' ').title() }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if sensores_sin_asignar %}
+    <div class="establishment-section">
+        <div class="establishment-header" style="background: #ffc107; color: #212529;">
+            <h4 class="mb-1"><i class="fas fa-exclamation-triangle me-2"></i>Sensores Sin Asignar</h4>
+            <small>{{ total_sensores_sin_asignar }} sensores registrados pero no asignados a ninguna barra</small>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Serie</th>
+                        <th>Descripción</th>
+                        <th>Temperatura</th>
+                        <th>Última Lectura</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sensor_data in sensores_sin_asignar %}
+                    <tr>
+                        <td><span class="sensor-serial">{{ sensor_data.sensor.numero_serie }}</span></td>
+                        <td>{{ sensor_data.sensor.descripcion or '-' }}</td>
+                        <td>
+                            {% if sensor_data.ultima_lectura %}
+                            <span class="temperature-value">{{ "%.1f"|format(sensor_data.ultima_lectura.temperatura) }}°C</span>
+                            {% else %}
+                            <span class="text-muted">Sin datos</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sensor_data.ultima_lectura %}
+                            <div>{{ sensor_data.ultima_lectura.timestamp.strftime('%d/%m/%Y') }}</div>
+                            <small class="text-muted">{{ sensor_data.ultima_lectura.timestamp.strftime('%H:%M:%S') }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-{{ sensor_data.estado }}">{{ sensor_data.estado.replace('_', ' ').title() }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

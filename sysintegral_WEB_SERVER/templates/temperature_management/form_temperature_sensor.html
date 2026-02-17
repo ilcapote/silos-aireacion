@@ -1,0 +1,18 @@
+{% macro render_sensor_form(action_url, sensor=None, csrf_token_field=None, submit_text='Guardar') %}
+<form method="POST" action="{{ action_url }}">
+    {% if csrf_token_field %}
+        {{ csrf_token_field }}
+    {% endif %}
+    <div class="form-group">
+        <label for="numero_serie">Número de Serie:</label>
+        <input type="text" class="form-control" id="numero_serie" name="numero_serie" value="{{ sensor.numero_serie if sensor else '' }}" required>
+    </div>
+    <div class="form-group">
+        <label for="descripcion">Descripción (opcional):</label>
+        <input type="text" class="form-control" id="descripcion" name="descripcion" value="{{ sensor.descripcion if sensor and sensor.descripcion else '' }}">
+    </div>
+    <br>
+    <button type="submit" class="btn btn-primary">{{ submit_text }}</button>
+    <a href="{{ url_for('manage_temperature_sensors') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endmacro %}

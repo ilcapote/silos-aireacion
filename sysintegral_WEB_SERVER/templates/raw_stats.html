@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Estadísticas de Funcionamiento</h2>
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group" aria-label="Vista de estadísticas">
+                <button type="button" class="btn btn-primary active" id="btnTabla">Vista de Tabla</button>
+                <button type="button" class="btn btn-primary" id="btnGrafico">Vista de Gráfico</button>
+            </div>
+        </div>
+    </div>
+
+    {% if stats %}
+    <div id="vistaTabla" class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Establecimiento</th>
+                    <th>Silo</th>
+                    <th>Posición</th>
+                    <th>Estado</th>
+                    <th>Último Uso</th>
+                    <th>Última Duración</th>
+                    <th>Horas Totales ({{ period|default('30') }}d)</th>
+                    <th>Promedio Diario</th>
+                    <th>Total Histórico</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in stats %}
+                <tr>
+                    <td>{{ stat.establishment_name }}</td>
+                    <td>{{ stat.silo_name }}</td>
+                    <td>{{ stat.position }}</td>
+                    <td>
+                        {% if stat.device_status.status == 'online' %}
+                            <span class="badge bg-success">Online</span>
+                        {% elif stat.device_status.status == 'warning' %}
+                            <span class="badge bg-warning text-dark">Warning</span>
+                        {% elif stat.device_status.status == 'offline' %}
+                            <span class="badge bg-danger">Offline</span>
+                        {% elif stat.device_status.status == 'no_device' %}
+                            <span class="badge bg-secondary">Sin Dispositivo</span>
+                        {% elif stat.device_status.status == 'no_data' %}
+                            <span class="badge bg-secondary">Sin Datos</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ stat.device_status.status_message }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stat.last_runtime %}
+                        {{ stat.last_runtime }}
+                        {% else %}
+                        <span class="text-muted">Sin datos</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stat.last_duration > 0 %}
+                        {{ "%.2f"|format(stat.last_duration) }} horas
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stat.total_hours > 0 %}
+                        {{ "%.2f"|format(stat.total_hours) }} horas
+                        <small class="text-muted d-block">
+                            ({{ stat.days_with_data }} días con datos)
+                        </small>
+                        {% else %}
+                        <span class="text-muted">Sin datos</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stat.avg_daily_hours > 0 %}
+                        {{ "%.2f"|format(stat.avg_daily_hours) }} horas/día
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stat.total_hours_all_time > 0 %}
+                        {{ "%.2f"|format(stat.total_hours_all_time) }} horas
+                        {% else %}
+                        <span class="text-muted">Sin datos</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div id="vistaGrafico" style="display: none;">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="selectorSilo"><strong>Seleccionar Silo:</strong></label>
+                    <select class="form-control" id="selectorSilo">
+                        <option value="todos">Mostrar Todos</option>
+                        {% for stat in stats %}
+                        <option value="{{ loop.index0 }}">{{ stat.establishment_name }} - {{ stat.silo_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="btn-group" role="group" aria-label="Periodo de tiempo">
+                    <input type="radio" class="btn-check period-selector" name="period" id="period7" value="7" {% if period == '7' %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="period7">Última Semana</label>
+                    
+                    <input type="radio" class="btn-check period-selector" name="period" id="period30" value="30" {% if period == '30' or not period %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="period30">Último Mes</label>
+                </div>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="graficoAireacion"></canvas>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        No hay datos de funcionamiento disponibles.
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .badge {
+        font-size: 0.9em;
+        padding: 0.4em 0.6em;
+    }
+    .badge-success {
+        background-color: #28a745;
+    }
+    .badge-danger {
+        background-color: #dc3545;
+    }
+    .chart-container {
+        position: relative;
+        height: 70vh;
+        width: 100%;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Obtener referencias a los elementos DOM
+    const btnTabla = document.getElementById('btnTabla');
+    const btnGrafico = document.getElementById('btnGrafico');
+    const vistaTabla = document.getElementById('vistaTabla');
+    const vistaGrafico = document.getElementById('vistaGrafico');
+    const ctx = document.getElementById('graficoAireacion').getContext('2d');
+    
+    // Manejar cambio de periodo (solo en vista de gráfico) usando AJAX
+    document.querySelectorAll('.period-selector').forEach(radio => {
+        radio.addEventListener('change', function() {
+            // Guardar la vista actual y el periodo seleccionado en localStorage
+            localStorage.setItem('vistaActiva', 'grafico');
+            localStorage.setItem('periodoSeleccionado', this.value);
+            
+            // Guardar la selección actual del silo
+            const siloSelector = document.getElementById('selectorSilo');
+            const selectedSilo = siloSelector.value;
+            localStorage.setItem('siloSeleccionado', selectedSilo);
+            
+            // Redirigir a la misma página con el nuevo periodo, pero mantener la vista y silo seleccionado
+            window.location.href = '{{ url_for("raw_stats") }}?period=' + this.value + '&view=grafico&silo=' + selectedSilo;
+        });
+    });
+    
+    // Restaurar la vista activa basada en localStorage o parámetro URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    
+    // Forzar la vista de gráfico si viene de un cambio de periodo
+    if (viewParam === 'grafico' || localStorage.getItem('vistaActiva') === 'grafico') {
+        // Esperar un momento para asegurar que todos los elementos están cargados
+        setTimeout(() => {
+            btnGrafico.click();
+            
+            // Restaurar la selección del silo
+            const siloParam = urlParams.get('silo');
+            const storedSilo = localStorage.getItem('siloSeleccionado');
+            const siloToSelect = siloParam || storedSilo || 'todos';
+            
+            if (siloToSelect !== 'todos') {
+                siloSelector.value = siloToSelect;
+                siloSelector.dispatchEvent(new Event('change'));
+            }
+        }, 200);
+    }
+
+    // Datos para el gráfico
+    const chartStats = {{ stats|tojson|safe }};
+    const periodo = parseInt("{{ period|default(30) }}");
+    const ultimosDias = [];
+    const fechaActual = new Date();
+    
+    for (let i = periodo - 1; i >= 0; i--) {
+        const fecha = new Date(fechaActual);
+        fecha.setDate(fechaActual.getDate() - i);
+        ultimosDias.push(fecha.toISOString().split('T')[0]);
+    }
+
+    // Preparar datos para el gráfico
+    const datasets = chartStats.map(silo => {
+        const horasPorDia = new Array(periodo).fill(0);
+        
+        // Llenar el array con los datos reales
+        ultimosDias.forEach((fecha, index) => {
+            if (silo.daily_hours && silo.daily_hours[fecha]) {
+                horasPorDia[index] = silo.daily_hours[fecha];
+            }
+        });
+
+        return {
+            label: `${silo.establishment_name} - ${silo.silo_name}`,
+            data: horasPorDia,
+            backgroundColor: getRandomColor(),
+            borderColor: 'rgba(0, 0, 0, 0.1)',
+            borderWidth: 1
+        };
+    });
+
+    // Crear el gráfico
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ultimosDias,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Horas de Aireación'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Fecha'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Tiempo de Aireación por Día (Últimos 30 días)'
+                }
+            }
+        }
+    });
+
+    // Función para generar colores aleatorios vibrantes sin transparencia
+    function getRandomColor() {
+        // Colores predefinidos vibrantes
+        const colores = [
+            '#FF5733', '#33FF57', '#3357FF', '#FF33A8', '#33A8FF',
+            '#A833FF', '#FF8C33', '#33FF8C', '#8C33FF', '#FFC733',
+            '#33FFC7', '#C733FF', '#FF5757', '#57FF57', '#5757FF'
+        ];
+        
+        // Usar un color predefinido o generar uno aleatorio si se acaban
+        const indice = Math.floor(Math.random() * colores.length);
+        return colores[indice];
+    }
+
+    // Manejar cambio de vistas
+    btnTabla.addEventListener('click', function() {
+        vistaTabla.style.display = 'block';
+        vistaGrafico.style.display = 'none';
+        btnTabla.classList.add('active');
+        btnGrafico.classList.remove('active');
+        // Guardar preferencia del usuario
+        localStorage.setItem('vistaActiva', 'tabla');
+    });
+    
+    btnGrafico.addEventListener('click', function() {
+        vistaTabla.style.display = 'none';
+        vistaGrafico.style.display = 'block';
+        btnTabla.classList.remove('active');
+        btnGrafico.classList.add('active');
+        // Guardar preferencia del usuario
+        localStorage.setItem('vistaActiva', 'grafico');
+    });
+    
+    // Manejar el cambio de silo seleccionado
+    const siloSelector = document.getElementById('selectorSilo');
+    siloSelector.addEventListener('change', function() {
+        const selectedIndex = this.value;
+        
+        // Guardar la selección en localStorage
+        localStorage.setItem('siloSeleccionado', selectedIndex);
+        
+        if (selectedIndex === 'todos') {
+            // Mostrar todos los silos
+            chart.data.datasets.forEach((dataset, index) => {
+                chart.setDatasetVisibility(index, true);
+            });
+        } else {
+            // Mostrar solo el silo seleccionado
+            chart.data.datasets.forEach((dataset, index) => {
+                chart.setDatasetVisibility(index, index == selectedIndex);
+            });
+        }
+        
+        chart.update();
+    });
+});
+
+// Se eliminó la recarga automática para evitar perder la vista de gráfico
+</script>
+{% endblock %}

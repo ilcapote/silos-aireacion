@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Sensores{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-bolt me-2"></i>Gestión de Sensores</h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <h5 class="mb-3">Sensores de Corriente</h5>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Establecimiento</th>
+                                    <th>ID del Sensor</th>
+                                    <th>Corriente Actual</th>
+                                    <th>Límite de Corriente</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for establishment in establishments %}
+                                    {% if establishment.current_sensor_id and (current_user.role == 'super_admin' or current_user.can_access_establishment(establishment.id)) %}
+                                    <tr id="row-{{ establishment.id }}" data-sensor-id="{{ establishment.current_sensor_id }}">
+                                        <td>{{ establishment.name }}</td>
+                                        <td>{{ establishment.current_sensor_id }}</td>
+                                        <td id="current-value-{{ establishment.id }}">
+                                            <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                                            <span>Cargando...</span>
+                                        </td>
+                                        <td>
+                                            <form id="limit-form-{{ establishment.id }}" class="d-flex align-items-center" method="POST" action="{{ url_for('update_current_limit', establishment_id=establishment.id) }}">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control" name="max_current" value="{{ establishment.max_operating_current or '' }}" step="0.1" min="0" placeholder="Límite A">
+                                                    <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+                                                </div>
+                                            </form>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info refresh-current-btn" data-sensor-id="{{ establishment.current_sensor_id }}" data-establishment-id="{{ establishment.id }}">
+                                                <i class="fas fa-sync-alt"></i> Actualizar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center">No hay sensores de corriente configurados</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if current_user.role == 'super_admin' %}
+                    <div class="mt-4">
+                        <h5>Configurar Sensor para un Establecimiento</h5>
+                        <p class="text-muted">Asigne o actualice un sensor de corriente a un establecimiento.</p>
+                        
+                        <form method="POST" action="{{ url_for('assign_current_sensor') }}" class="row g-3">
+                            <div class="col-md-5">
+                                <label for="establishment_id" class="form-label">Establecimiento</label>
+                                <select class="form-select" id="establishment_id" name="establishment_id" required>
+                                    <option value="" selected disabled>Seleccione un establecimiento</option>
+                                    {% for establishment in all_establishments %}
+                                        <option value="{{ establishment.id }}">{{ establishment.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="sensor_id" class="form-label">ID del Sensor</label>
+                                <input type="text" class="form-control" id="sensor_id" name="sensor_id" placeholder="Ej: sensor_1" required>
+                                <div class="form-text">Identificador único del sensor ESP32</div>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">Asignar Sensor</button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Función para actualizar los valores de corriente
+    function updateCurrentValues() {
+        document.querySelectorAll('[data-sensor-id]').forEach(row => {
+            const sensorId = row.dataset.sensorId;
+            const establishmentId = row.id.replace('row-', '');
+            
+            if (sensorId) {
+                fetch(`/api/current_value/${sensorId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const valueCell = document.getElementById(`current-value-${establishmentId}`);
+                        if (data.status === 'error') {
+                            valueCell.innerHTML = `<span class="text-danger">Sin datos</span>`;
+                        } else {
+                            const current = parseFloat(data.corriente).toFixed(2);
+                            const maxCurrent = data.max_corriente ? parseFloat(data.max_corriente).toFixed(2) : null;
+                            
+                            let colorClass = 'text-dark';
+                            if (maxCurrent && current > maxCurrent) {
+                                colorClass = 'text-danger';
+                            } else if (current > 0) {
+                                colorClass = 'text-success';
+                            }
+                            
+                            valueCell.innerHTML = `<span class="${colorClass} fw-bold">${current} A</span>`;
+                            
+                            // Actualizar también el límite si viene en la respuesta
+                            if (maxCurrent) {
+                                const limitInput = document.querySelector(`#limit-form-${establishmentId} input[name="max_current"]`);
+                                if (limitInput && !limitInput.value) {
+                                    limitInput.value = maxCurrent;
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al obtener datos de corriente:', error);
+                        const valueCell = document.getElementById(`current-value-${establishmentId}`);
+                        valueCell.innerHTML = `<span class="text-danger">Error</span>`;
+                    });
+            }
+        });
+    }
+    
+    // Actualizar valores al cargar la página
+    updateCurrentValues();
+    
+    // Configurar actualización periódica cada 10 segundos
+    setInterval(updateCurrentValues, 10000);
+    
+    // Configurar botones de actualización manual
+    document.querySelectorAll('.refresh-current-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const sensorId = this.dataset.sensorId;
+            const establishmentId = this.dataset.establishmentId;
+            const valueCell = document.getElementById(`current-value-${establishmentId}`);
+            
+            // Mostrar spinner mientras se actualiza
+            valueCell.innerHTML = `<span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                                  <span>Actualizando...</span>`;
+            
+            // Actualizar solo este sensor
+            fetch(`/api/current_value/${sensorId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        valueCell.innerHTML = `<span class="text-danger">Sin datos</span>`;
+                    } else {
+                        const current = parseFloat(data.corriente).toFixed(2);
+                        const maxCurrent = data.max_corriente ? parseFloat(data.max_corriente).toFixed(2) : null;
+                        
+                        let colorClass = 'text-dark';
+                        if (maxCurrent && current > maxCurrent) {
+                            colorClass = 'text-danger';
+                        } else if (current > 0) {
+                            colorClass = 'text-success';
+                        }
+                        
+                        valueCell.innerHTML = `<span class="${colorClass} fw-bold">${current} A</span>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al obtener datos de corriente:', error);
+                    valueCell.innerHTML = `<span class="text-danger">Error</span>`;
+                });
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Configurar Sensores en Barra: {{ barra.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Configurar Sensores en Barra: <strong>{{ barra.nombre }}</strong></h1>
+    <p>Establecimiento: {{ barra.establecimiento.name if barra.establecimiento else 'N/A' }}</p>
+    {% if barra.silo_asignado %}
+    <p>Asignada al Silo: {{ barra.silo_asignado.name }}</p>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('edit_sensor_bar', bar_id=barra.id) }}">
+        {# Si usas Flask-WTF, aquí iría {{ form.csrf_token }} #}
+        
+        <div class="row">
+            {% for i in range(1, 9) %}
+            <div class="col-md-6 col-lg-3 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        Posición {{ i }}
+                    </div>
+                    <div class="card-body">
+                        <label for="sensor{{ i }}_id" class="form-label">Sensor:</label>
+                        <select class="form-select" id="sensor{{ i }}_id" name="sensor{{ i }}_id">
+                            <option value="">-- Vacío --</option>
+                            {% set current_sensor_id_for_slot = barra['sensor' ~ i ~ '_id'] %}
+                            
+                            {# Opción para el sensor actualmente en este slot (si existe y está en el dict) #}
+                            {% if current_sensor_id_for_slot and sensors_in_this_bar[current_sensor_id_for_slot] %}
+                                <option value="{{ current_sensor_id_for_slot }}" selected>
+                                    {{ sensors_in_this_bar[current_sensor_id_for_slot].numero_serie }} 
+                                    ({{ sensors_in_this_bar[current_sensor_id_for_slot].descripcion or 'Sin desc.' }})
+                                </option>
+                            {% endif %}
+
+                            {# Opciones para sensores "elegibles" (no en otras barras) #}
+                            {% for sensor in available_sensors %}
+                                {# Solo mostrar si no es el que ya está seleccionado arriba (para evitar duplicados en el dropdown) #}
+                                {% if sensor.id != current_sensor_id_for_slot %}
+                                <option value="{{ sensor.id }}">
+                                    {{ sensor.numero_serie }} ({{ sensor.descripcion or 'Sin desc.' }})
+                                </option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">Guardar Cambios en Barra</button>
+            <a href="{{ url_for('manage_sensor_bars') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+    <hr>
+    <p class="mt-3"><small>Nota: Un sensor no puede ser asignado a múltiples posiciones, ni en esta barra ni en otras. El sistema validará esto.</small></p>
+
+</div>
+{% endblock %}
