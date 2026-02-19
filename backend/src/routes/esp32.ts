@@ -360,6 +360,74 @@ router.post('/reboot', (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/corriente
+ * El sensor de corriente reporta su valor actual. Se guarda solo el último valor (UPSERT).
+ */
+router.post('/corriente', (req: Request, res: Response) => {
+  try {
+    const { device_id, corriente } = req.body;
+
+    if (!device_id || corriente === undefined) {
+      return res.status(400).json({ error: 'device_id y corriente son requeridos' });
+    }
+
+    const valor = parseFloat(corriente);
+    if (isNaN(valor)) {
+      return res.status(400).json({ error: 'corriente debe ser un número válido' });
+    }
+
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO current_readings (device_id, corriente, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(device_id) DO UPDATE SET corriente = excluded.corriente, updated_at = excluded.updated_at
+    `).run(device_id, valor, now);
+
+    res.json({ status: 'success' });
+  } catch (error) {
+    console.error('Error en POST corriente:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * GET /api/corriente?device_id=X
+ * El ESP32 consulta el último valor de corriente y la corriente máxima del establecimiento.
+ */
+router.get('/corriente', (req: Request, res: Response) => {
+  try {
+    const { device_id } = req.query;
+
+    if (!device_id) {
+      return res.status(400).json({ error: 'device_id es requerido' });
+    }
+
+    const reading = db.prepare(
+      'SELECT corriente, updated_at FROM current_readings WHERE device_id = ?'
+    ).get(device_id as string) as { corriente: number; updated_at: string } | undefined;
+
+    if (!reading) {
+      return res.status(404).json({ error: 'No hay datos de corriente para este sensor' });
+    }
+
+    // Buscar el establecimiento que tiene este sensor configurado
+    const establishment = db.prepare(
+      'SELECT max_operating_current FROM establishments WHERE current_sensor_id = ?'
+    ).get(device_id as string) as { max_operating_current: number | null } | undefined;
+
+    res.json({
+      corriente: reading.corriente,
+      updated_at: reading.updated_at,
+      max_corriente: establishment?.max_operating_current ?? null,
+    });
+  } catch (error) {
+    console.error('Error en GET corriente:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
  * POST /api/device_action_log
  * El ESP32 registra una acción ON/OFF de un aireador.
  */

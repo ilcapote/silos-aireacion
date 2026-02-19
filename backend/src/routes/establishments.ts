@@ -148,6 +148,35 @@ async function getCityFromCoords(lat: number, lon: number): Promise<string | nul
   }
 }
 
+// Actualizar configuración de corriente (accesible para cualquier usuario autenticado)
+router.patch('/:id/current-settings', authenticateToken, (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { max_operating_current, current_sensor_id } = req.body;
+
+    const establishment = db.prepare('SELECT * FROM establishments WHERE id = ?').get(id) as any;
+    if (!establishment) {
+      return res.status(404).json({ error: 'Establecimiento no encontrado' });
+    }
+
+    db.prepare(`
+      UPDATE establishments
+      SET max_operating_current = ?, current_sensor_id = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      max_operating_current !== undefined ? parseFloat(max_operating_current) || null : establishment.max_operating_current,
+      current_sensor_id !== undefined ? (current_sensor_id || null) : establishment.current_sensor_id,
+      id
+    );
+
+    const updated = db.prepare('SELECT * FROM establishments WHERE id = ?').get(id);
+    res.json({ message: 'Configuración de corriente actualizada', establishment: updated });
+  } catch (error) {
+    console.error('Error al actualizar configuración de corriente:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Todas las rutas requieren autenticación y permisos de super_admin
 router.use(authenticateToken);
 router.use(requireSuperAdmin);

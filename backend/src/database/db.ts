@@ -196,6 +196,15 @@ export function initDatabase() {
     DELETE FROM device_reboots WHERE timestamp < datetime('now', '-1 month')
   `).run();
 
+  // Tabla de lecturas de corriente (solo guarda el último valor por sensor)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS current_readings (
+      device_id TEXT PRIMARY KEY,
+      corriente REAL NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   // Tabla de logs de acciones de aireadores (ON/OFF)
   db.exec(`
     CREATE TABLE IF NOT EXISTS device_action_logs (

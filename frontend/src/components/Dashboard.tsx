@@ -11,10 +11,11 @@ import { ChangePasswordModal } from './ChangePasswordModal';
 import HeartbeatMonitor from './HeartbeatMonitor';
 import RebootMonitor from './RebootMonitor';
 import AeratorLogs from './AeratorLogs';
+import CurrentMonitor from './CurrentMonitor';
 import { establishmentsApi, Establishment } from '../api/establishments';
 import { LogOut, Key, Users, Building2, Cpu, Container, Thermometer, Layers, Gauge, ChevronDown, Activity, RotateCcw, Zap } from 'lucide-react';
 
-type AdminTab = 'monitoring' | 'users' | 'establishments' | 'boards' | 'silos' | 'sensors' | 'sensor-bars' | 'heartbeats' | 'reboots' | 'aerator-logs';
+type AdminTab = 'monitoring' | 'users' | 'establishments' | 'boards' | 'silos' | 'sensors' | 'sensor-bars' | 'heartbeats' | 'reboots' | 'aerator-logs' | 'corriente';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -291,6 +292,19 @@ export const Dashboard: React.FC = () => {
                   <span className="hidden sm:inline">Registros Aireador</span>
                   <span className="sm:hidden">Aireador</span>
                 </button>
+                <button
+                  onClick={() => setActiveTab('corriente')}
+                  className={`
+                    py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm flex items-center gap-1.5 md:gap-2 whitespace-nowrap
+                    ${activeTab === 'corriente'
+                      ? 'border-yellow-400 text-yellow-300'
+                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                    }
+                  `}
+                >
+                  <Zap className="w-4 h-4 md:w-5 md:h-5" />
+                  Corriente
+                </button>
               </nav>
             </div>
 
@@ -315,11 +329,14 @@ export const Dashboard: React.FC = () => {
             {activeTab === 'aerator-logs' && (
               <AeratorLogs establishmentId={selectedEstablishmentId} />
             )}
+            {activeTab === 'corriente' && (
+              <CurrentMonitor establishmentId={selectedEstablishmentId} />
+            )}
           </>
         )}
 
         {user?.role !== 'super_admin' && (
-          <AeratorLogs establishmentId={selectedEstablishmentId} />
+          <CurrentMonitor establishmentId={selectedEstablishmentId} />
         )}
       </main>
 

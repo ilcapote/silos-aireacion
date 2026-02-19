@@ -371,10 +371,37 @@ class AerationService {
       }
     }
 
-    // TODO: Implementar protección por sobrecorriente si hay sensor de corriente
-    // if (establishment.current_sensor_id && establishment.max_operating_current) {
-    //   // Verificar corriente actual y forzar apagado si excede el máximo
-    // }
+    // Protección por sobrecorriente en la hora actual (índice 0)
+    if (
+      establishment.current_sensor_id &&
+      establishment.max_operating_current &&
+      establishment.max_operating_current > 0 &&
+      hoursStatesResponse.length > 0
+    ) {
+      const reading = db.prepare(
+        'SELECT corriente, updated_at FROM current_readings WHERE device_id = ?'
+      ).get(establishment.current_sensor_id) as { corriente: number; updated_at: string } | undefined;
+
+      if (reading) {
+        const AERATOR_ESTIMATED_CURRENT = 6.0; // Amperios estimados por aireador (igual que firmware)
+        const maxCurrent = establishment.max_operating_current;
+        let accumulatedCurrent = reading.corriente;
+
+        // Recorrer los silos de la hora actual y forzar apagado si excede el máximo
+        const currentHourStates = hoursStatesResponse[0].states;
+        for (const state of currentHourStates) {
+          if (state.is_on) {
+            const projected = accumulatedCurrent + AERATOR_ESTIMATED_CURRENT;
+            if (projected > maxCurrent) {
+              state.is_on = false;
+              state.forced_off_reason = `Límite de corriente (${reading.corriente.toFixed(1)}A actual, máx ${maxCurrent}A)`;
+            } else {
+              accumulatedCurrent = projected;
+            }
+          }
+        }
+      }
+    }
 
     // Marcar todos los silos como no modificados
     const updateStmt = db.prepare('UPDATE silos SET modified = 0 WHERE establishment_id = ?');
