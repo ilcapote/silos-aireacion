@@ -175,6 +175,28 @@ export function initDatabase() {
     )
   `);
 
+  // Tabla de heartbeats de dispositivos ESP32
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_heartbeats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mac_address TEXT NOT NULL,
+      firmware_version TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (mac_address) REFERENCES boards(mac_address) ON DELETE CASCADE
+    )
+  `);
+
+  // Índices para mejorar consultas de heartbeats
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_heartbeats_mac ON device_heartbeats(mac_address);
+    CREATE INDEX IF NOT EXISTS idx_heartbeats_timestamp ON device_heartbeats(timestamp DESC);
+  `);
+
+  // Limpiar heartbeats con más de 1 mes de antigüedad
+  db.prepare(`
+    DELETE FROM device_heartbeats WHERE timestamp < datetime('now', '-1 month')
+  `).run();
+
   // Índices para mejorar consultas de lecturas
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_temp_readings_sensor ON temperature_readings(sensor_id);

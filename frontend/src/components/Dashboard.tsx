@@ -8,10 +8,11 @@ import SensorManagement from './SensorManagement';
 import SensorBarManagement from './SensorBarManagement';
 import { MonitoringDashboard } from './MonitoringDashboard';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import HeartbeatMonitor from './HeartbeatMonitor';
 import { establishmentsApi, Establishment } from '../api/establishments';
-import { LogOut, Key, Users, Building2, Cpu, Container, Thermometer, Layers, Gauge, ChevronDown } from 'lucide-react';
+import { LogOut, Key, Users, Building2, Cpu, Container, Thermometer, Layers, Gauge, ChevronDown, Activity } from 'lucide-react';
 
-type AdminTab = 'monitoring' | 'users' | 'establishments' | 'boards' | 'silos' | 'sensors' | 'sensor-bars';
+type AdminTab = 'monitoring' | 'users' | 'establishments' | 'boards' | 'silos' | 'sensors' | 'sensor-bars' | 'heartbeats';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -248,6 +249,19 @@ export const Dashboard: React.FC = () => {
                   <Layers className="w-4 h-4 md:w-5 md:h-5" />
                   Barras
                 </button>
+                <button
+                  onClick={() => setActiveTab('heartbeats')}
+                  className={`
+                    py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm flex items-center gap-1.5 md:gap-2 whitespace-nowrap
+                    ${activeTab === 'heartbeats'
+                      ? 'border-blue-500 text-blue-400'
+                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                    }
+                  `}
+                >
+                  <Activity className="w-4 h-4 md:w-5 md:h-5" />
+                  Heartbeats
+                </button>
               </nav>
             </div>
 
@@ -267,6 +281,7 @@ export const Dashboard: React.FC = () => {
             {activeTab === 'sensor-bars' && (
               <SensorBarManagement establishmentId={selectedEstablishmentId} />
             )}
+            {activeTab === 'heartbeats' && <HeartbeatMonitor />}
           </>
         )}
 

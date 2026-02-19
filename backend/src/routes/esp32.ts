@@ -193,6 +193,126 @@ router.post('/log_runtime', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/heartbeat
+ * El ESP32 envía un heartbeat periódico con su MAC y versión de firmware.
+ * Compatible con firmware existente (también accesible como /api/esp32/heartbeat)
+ */
+router.post('/heartbeat', (req: Request, res: Response) => {
+  try {
+    const { mac_address, firmware_version } = req.body;
+
+    if (!mac_address) {
+      return res.status(400).json({ error: 'MAC address no proporcionada' });
+    }
+
+    const macStd = standardizeMac(mac_address);
+
+    // Verificar que el dispositivo esté registrado
+    const board = db.prepare('SELECT * FROM boards WHERE mac_address = ?').get(macStd) as any;
+    if (!board) {
+      return res.status(404).json({ error: 'Dispositivo no registrado' });
+    }
+
+    const now = new Date().toISOString();
+
+    // Insertar registro de heartbeat
+    db.prepare(`
+      INSERT INTO device_heartbeats (mac_address, firmware_version, timestamp)
+      VALUES (?, ?, ?)
+    `).run(macStd, firmware_version || null, now);
+
+    // Actualizar last_heartbeat y status en boards
+    db.prepare(`
+      UPDATE boards
+      SET last_heartbeat = ?, status = 'online', firmware_version = COALESCE(?, firmware_version), updated_at = ?
+      WHERE mac_address = ?
+    `).run(now, firmware_version || null, now, macStd);
+
+    // Limpiar heartbeats con más de 1 mes de antigüedad para este dispositivo
+    db.prepare(`
+      DELETE FROM device_heartbeats WHERE mac_address = ? AND timestamp < datetime('now', '-1 month')
+    `).run(macStd);
+
+    res.json({ status: 'success' });
+  } catch (error) {
+    console.error('Error en heartbeat:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * GET /api/esp32/heartbeats/:mac_address
+ * Obtiene el historial de heartbeats de un dispositivo para el frontend.
+ * Parámetro query: period = '24h' | '7d' (default: '24h')
+ */
+router.get('/heartbeats/:mac_address', (req: Request, res: Response) => {
+  try {
+    const { mac_address } = req.params;
+    const period = (req.query.period as string) || '24h';
+    const macStd = standardizeMac(mac_address);
+
+    // Verificar que el dispositivo esté registrado
+    const board = db.prepare(`
+      SELECT b.*, e.name as establishment_name
+      FROM boards b
+      LEFT JOIN establishments e ON b.establishment_id = e.id
+      WHERE b.mac_address = ?
+    `).get(macStd) as any;
+
+    if (!board) {
+      return res.status(404).json({ error: 'Dispositivo no registrado' });
+    }
+
+    const intervalMap: Record<string, string> = {
+      '24h': '-1 day',
+      '7d':  '-7 days',
+    };
+    const interval = intervalMap[period] || '-1 day';
+
+    const heartbeats = db.prepare(`
+      SELECT id, mac_address, firmware_version, timestamp
+      FROM device_heartbeats
+      WHERE mac_address = ? AND timestamp >= datetime('now', ?)
+      ORDER BY timestamp DESC
+    `).all(macStd, interval) as any[];
+
+    res.json({
+      board,
+      period,
+      total: heartbeats.length,
+      heartbeats,
+    });
+  } catch (error) {
+    console.error('Error en GET heartbeats:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * GET /api/esp32/heartbeats
+ * Lista todos los dispositivos con su resumen de heartbeats (para selector en frontend)
+ */
+router.get('/heartbeats', (req: Request, res: Response) => {
+  try {
+    const boards = db.prepare(`
+      SELECT b.mac_address, b.status, b.last_heartbeat, b.firmware_version,
+             e.name as establishment_name,
+             (SELECT COUNT(*) FROM device_heartbeats dh
+              WHERE dh.mac_address = b.mac_address
+              AND dh.timestamp >= datetime('now', '-1 day')) as heartbeats_24h
+      FROM boards b
+      LEFT JOIN establishments e ON b.establishment_id = e.id
+      ORDER BY e.name, b.mac_address
+    `).all() as any[];
+
+    res.json(boards);
+  } catch (error) {
+    console.error('Error en GET heartbeats list:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Endpoint simple para verificar conectividad
 router.get('/ping', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
