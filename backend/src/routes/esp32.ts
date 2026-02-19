@@ -359,6 +359,163 @@ router.post('/reboot', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/device_action_log
+ * El ESP32 registra una acción ON/OFF de un aireador.
+ */
+router.post('/device_action_log', (req: Request, res: Response) => {
+  try {
+    const { mac_address, action, position, result, message } = req.body;
+
+    if (!mac_address || !action || position === undefined) {
+      return res.status(400).json({ error: 'Faltan datos requeridos: mac_address, action, position' });
+    }
+
+    const macStd = standardizeMac(mac_address);
+
+    const board = db.prepare('SELECT * FROM boards WHERE mac_address = ?').get(macStd) as any;
+    if (!board) {
+      return res.status(404).json({ error: 'Dispositivo no registrado' });
+    }
+
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO device_action_logs (mac_address, action, position, result, message, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(macStd, action, position, result || 'success', message || null, now);
+
+    res.json({ status: 'success' });
+  } catch (error) {
+    console.error('Error en device_action_log:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * GET /api/esp32/reboots
+ * Lista todos los dispositivos con conteo de reinicios (para selector en frontend)
+ */
+router.get('/reboots', (req: Request, res: Response) => {
+  try {
+    const boards = db.prepare(`
+      SELECT b.mac_address, b.status, b.last_heartbeat, b.firmware_version,
+             e.name as establishment_name,
+             (SELECT COUNT(*) FROM device_reboots dr
+              WHERE dr.mac_address = b.mac_address
+              AND dr.timestamp >= datetime('now', '-1 day')) as reboots_24h,
+             (SELECT COUNT(*) FROM device_reboots dr2
+              WHERE dr2.mac_address = b.mac_address) as reboots_total
+      FROM boards b
+      LEFT JOIN establishments e ON b.establishment_id = e.id
+      ORDER BY e.name, b.mac_address
+    `).all() as any[];
+
+    res.json(boards);
+  } catch (error) {
+    console.error('Error en GET reboots list:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * GET /api/esp32/reboots/:mac_address
+ * Historial de reinicios de un dispositivo. Query: period=24h|7d (default: 24h)
+ */
+router.get('/reboots/:mac_address', (req: Request, res: Response) => {
+  try {
+    const { mac_address } = req.params;
+    const period = (req.query.period as string) || '24h';
+    const macStd = standardizeMac(mac_address);
+
+    const board = db.prepare(`
+      SELECT b.*, e.name as establishment_name
+      FROM boards b
+      LEFT JOIN establishments e ON b.establishment_id = e.id
+      WHERE b.mac_address = ?
+    `).get(macStd) as any;
+
+    if (!board) {
+      return res.status(404).json({ error: 'Dispositivo no registrado' });
+    }
+
+    const intervalMap: Record<string, string> = {
+      '24h': '-1 day',
+      '7d':  '-7 days',
+    };
+    const interval = intervalMap[period] || '-1 day';
+
+    const reboots = db.prepare(`
+      SELECT id, mac_address, reason, timestamp
+      FROM device_reboots
+      WHERE mac_address = ? AND timestamp >= datetime('now', ?)
+      ORDER BY timestamp DESC
+    `).all(macStd, interval) as any[];
+
+    res.json({ board, period, total: reboots.length, reboots });
+  } catch (error) {
+    console.error('Error en GET reboots:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+/**
+ * GET /api/esp32/action-logs
+ * Logs de acciones ON/OFF de aireadores por establecimiento.
+ * Query: establishment_id (requerido), period=24h|7d|30d (default: 24h), position (opcional)
+ */
+router.get('/action-logs', (req: Request, res: Response) => {
+  try {
+    const { establishment_id, period, position } = req.query;
+
+    if (!establishment_id) {
+      return res.status(400).json({ error: 'establishment_id es requerido' });
+    }
+
+    const intervalMap: Record<string, string> = {
+      '24h': '-1 day',
+      '7d':  '-7 days',
+      '30d': '-30 days',
+    };
+    const interval = intervalMap[period as string] || '-1 day';
+
+    let query = `
+      SELECT
+        dal.id,
+        dal.mac_address,
+        dal.action,
+        dal.position,
+        dal.result,
+        dal.message,
+        dal.timestamp,
+        e.name as establishment_name,
+        s.name as silo_name
+      FROM device_action_logs dal
+      JOIN boards b ON dal.mac_address = b.mac_address
+      JOIN establishments e ON b.establishment_id = e.id
+      LEFT JOIN silos s ON s.establishment_id = e.id AND s.aerator_position = dal.position
+      WHERE b.establishment_id = ?
+        AND dal.timestamp >= datetime('now', ?)
+    `;
+
+    const params: any[] = [parseInt(establishment_id as string), interval];
+
+    if (position !== undefined) {
+      query += ' AND dal.position = ?';
+      params.push(parseInt(position as string));
+    }
+
+    query += ' ORDER BY dal.timestamp DESC LIMIT 500';
+
+    const logs = db.prepare(query).all(...params) as any[];
+
+    res.json({ period: period || '24h', total: logs.length, logs });
+  } catch (error) {
+    console.error('Error en GET action-logs:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Endpoint simple para verificar conectividad
 router.get('/ping', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

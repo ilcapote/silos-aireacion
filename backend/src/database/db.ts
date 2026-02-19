@@ -196,6 +196,26 @@ export function initDatabase() {
     DELETE FROM device_reboots WHERE timestamp < datetime('now', '-1 month')
   `).run();
 
+  // Tabla de logs de acciones de aireadores (ON/OFF)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_action_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mac_address TEXT NOT NULL,
+      action TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      result TEXT NOT NULL DEFAULT 'success',
+      message TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (mac_address) REFERENCES boards(mac_address) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_action_logs_mac ON device_action_logs(mac_address);
+    CREATE INDEX IF NOT EXISTS idx_action_logs_timestamp ON device_action_logs(timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_action_logs_position ON device_action_logs(position);
+  `);
+
   // Tabla de heartbeats de dispositivos ESP32
   db.exec(`
     CREATE TABLE IF NOT EXISTS device_heartbeats (

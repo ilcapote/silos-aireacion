@@ -9,10 +9,12 @@ import SensorBarManagement from './SensorBarManagement';
 import { MonitoringDashboard } from './MonitoringDashboard';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import HeartbeatMonitor from './HeartbeatMonitor';
+import RebootMonitor from './RebootMonitor';
+import AeratorLogs from './AeratorLogs';
 import { establishmentsApi, Establishment } from '../api/establishments';
-import { LogOut, Key, Users, Building2, Cpu, Container, Thermometer, Layers, Gauge, ChevronDown, Activity } from 'lucide-react';
+import { LogOut, Key, Users, Building2, Cpu, Container, Thermometer, Layers, Gauge, ChevronDown, Activity, RotateCcw, Zap } from 'lucide-react';
 
-type AdminTab = 'monitoring' | 'users' | 'establishments' | 'boards' | 'silos' | 'sensors' | 'sensor-bars' | 'heartbeats';
+type AdminTab = 'monitoring' | 'users' | 'establishments' | 'boards' | 'silos' | 'sensors' | 'sensor-bars' | 'heartbeats' | 'reboots' | 'aerator-logs';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -262,6 +264,33 @@ export const Dashboard: React.FC = () => {
                   <Activity className="w-4 h-4 md:w-5 md:h-5" />
                   Heartbeats
                 </button>
+                <button
+                  onClick={() => setActiveTab('reboots')}
+                  className={`
+                    py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm flex items-center gap-1.5 md:gap-2 whitespace-nowrap
+                    ${activeTab === 'reboots'
+                      ? 'border-orange-500 text-orange-400'
+                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                    }
+                  `}
+                >
+                  <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
+                  Reinicios
+                </button>
+                <button
+                  onClick={() => setActiveTab('aerator-logs')}
+                  className={`
+                    py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm flex items-center gap-1.5 md:gap-2 whitespace-nowrap
+                    ${activeTab === 'aerator-logs'
+                      ? 'border-yellow-500 text-yellow-400'
+                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                    }
+                  `}
+                >
+                  <Zap className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">Registros Aireador</span>
+                  <span className="sm:hidden">Aireador</span>
+                </button>
               </nav>
             </div>
 
@@ -282,16 +311,15 @@ export const Dashboard: React.FC = () => {
               <SensorBarManagement establishmentId={selectedEstablishmentId} />
             )}
             {activeTab === 'heartbeats' && <HeartbeatMonitor />}
+            {activeTab === 'reboots' && <RebootMonitor />}
+            {activeTab === 'aerator-logs' && (
+              <AeratorLogs establishmentId={selectedEstablishmentId} />
+            )}
           </>
         )}
 
         {user?.role !== 'super_admin' && (
-          <div className="bg-slate-800 rounded-lg shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">Dashboard</h2>
-            <p className="text-slate-300">
-              Contenido del dashboard para usuarios regulares (próximamente)
-            </p>
-          </div>
+          <AeratorLogs establishmentId={selectedEstablishmentId} />
         )}
       </main>
 
