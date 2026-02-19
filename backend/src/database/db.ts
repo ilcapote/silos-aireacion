@@ -175,6 +175,27 @@ export function initDatabase() {
     )
   `);
 
+  // Tabla de reinicios de dispositivos ESP32
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_reboots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mac_address TEXT NOT NULL,
+      reason TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (mac_address) REFERENCES boards(mac_address) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_reboots_mac ON device_reboots(mac_address);
+    CREATE INDEX IF NOT EXISTS idx_reboots_timestamp ON device_reboots(timestamp DESC);
+  `);
+
+  // Limpiar reboots con más de 1 mes de antigüedad
+  db.prepare(`
+    DELETE FROM device_reboots WHERE timestamp < datetime('now', '-1 month')
+  `).run();
+
   // Tabla de heartbeats de dispositivos ESP32
   db.exec(`
     CREATE TABLE IF NOT EXISTS device_heartbeats (

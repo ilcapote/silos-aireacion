@@ -313,6 +313,52 @@ router.get('/heartbeats', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/reboot
+ * El ESP32 notifica al servidor que acaba de reiniciarse.
+ * Registra el evento en device_reboots y marca el board como online.
+ */
+router.post('/reboot', (req: Request, res: Response) => {
+  try {
+    const { mac_address, reason } = req.body;
+
+    if (!mac_address) {
+      return res.status(400).json({ error: 'MAC address no proporcionada' });
+    }
+
+    const macStd = standardizeMac(mac_address);
+
+    const board = db.prepare('SELECT * FROM boards WHERE mac_address = ?').get(macStd) as any;
+    if (!board) {
+      return res.status(404).json({ error: 'Dispositivo no registrado' });
+    }
+
+    const now = new Date().toISOString();
+
+    // Registrar el reinicio
+    db.prepare(`
+      INSERT INTO device_reboots (mac_address, reason, timestamp)
+      VALUES (?, ?, ?)
+    `).run(macStd, reason || 'Power cycle', now);
+
+    // Actualizar status del board
+    db.prepare(`
+      UPDATE boards SET status = 'online', updated_at = ? WHERE mac_address = ?
+    `).run(now, macStd);
+
+    // Limpiar registros viejos de este dispositivo
+    db.prepare(`
+      DELETE FROM device_reboots WHERE mac_address = ? AND timestamp < datetime('now', '-1 month')
+    `).run(macStd);
+
+    console.log(`🔄 Reboot registrado: ${macStd} — motivo: ${reason || 'Power cycle'}`);
+    res.json({ status: 'success' });
+  } catch (error) {
+    console.error('Error en reboot:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Endpoint simple para verificar conectividad
 router.get('/ping', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
