@@ -1,9 +1,25 @@
-import Database from 'better-sqlite3';
+import Database from 'libsql';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../database.sqlite');
-export const db = new Database(dbPath);
+// Turso remoto o SQLite local
+const tursoUrl = process.env.TURSO_DATABASE_URL;
+const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
+
+let db: InstanceType<typeof Database>;
+
+if (tursoUrl && tursoAuthToken) {
+  // Conexión remota a Turso
+  db = new Database(tursoUrl, { authToken: tursoAuthToken } as any);
+  console.log('🌐 Conectado a Turso (remoto)');
+} else {
+  // SQLite local para desarrollo
+  const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../database.sqlite');
+  db = new Database(dbPath);
+  console.log('💾 Usando SQLite local:', dbPath);
+}
+
+export { db };
 
 // Habilitar foreign keys
 db.pragma('foreign_keys = ON');

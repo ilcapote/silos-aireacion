@@ -30,13 +30,9 @@ RUN npx tsc
 # Copiar build del frontend al backend
 COPY --from=frontend-builder /app/frontend/dist ./public
 
-# Crear directorio para la base de datos SQLite
-RUN mkdir -p /app/data
-
 # Variables de entorno
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DATABASE_PATH=/app/data/database.sqlite
 
 # Exponer puerto
 EXPOSE 3000
