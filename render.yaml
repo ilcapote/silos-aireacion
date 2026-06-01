@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: silos-aireacion
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    disk:
+      name: silos-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_PATH
+        value: /app/data/database.sqlite
+      - key: JWT_SECRET
+        generateValue: true
